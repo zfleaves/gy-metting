@@ -42,6 +42,19 @@ export function getTaskSegments(taskId) {
   return request(`/api/tasks/${taskId}/segments`)
 }
 
+// 保存重点标记
+export function saveHighlights(taskId, highlightedIndices) {
+  return request(`/api/tasks/${taskId}/highlights`, {
+    method: 'POST',
+    body: JSON.stringify({ highlighted_indices: highlightedIndices }),
+  })
+}
+
+// 获取重点标记
+export function getHighlights(taskId) {
+  return request(`/api/tasks/${taskId}/highlights`)
+}
+
 // 查询任务列表
 export function listTasks({ status, task_type, limit = 20, offset = 0 } = {}) {
   const query = new URLSearchParams()

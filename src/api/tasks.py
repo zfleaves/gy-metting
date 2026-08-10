@@ -64,7 +64,6 @@ async def get_task_segments(task_id: str):
     if not task:
         raise HTTPException(status_code=404, detail=f"任务不存在: {task_id}")
 
-    # 从 result_summary 中提取 segments_path
     result_summary = task.get("result_summary")
     if not result_summary:
         raise HTTPException(status_code=404, detail="任务无结果")
@@ -82,6 +81,66 @@ async def get_task_segments(task_id: str):
         segments = json.load(f)
 
     return {"task_id": task_id, "segments": segments, "segments_count": len(segments)}
+
+
+@router.post("/{task_id}/highlights")
+async def save_highlights(task_id: str, body: dict):
+    """保存重点语句标记（{highlighted_indices: [0, 3, 5]}）"""
+    manager = get_task_manager()
+    task = manager.get_task(task_id)
+    if not task:
+        raise HTTPException(status_code=404, detail=f"任务不存在: {task_id}")
+
+    result_summary = task.get("result_summary")
+    if not result_summary:
+        raise HTTPException(status_code=404, detail="任务无结果")
+
+    try:
+        summary = json.loads(result_summary)
+        segments_path = summary.get("segments_path")
+    except json.JSONDecodeError:
+        raise HTTPException(status_code=404, detail="结果解析失败")
+
+    if not segments_path:
+        raise HTTPException(status_code=404, detail="分段文件不存在")
+
+    # 保存高亮标记到同目录
+    highlights_path = os.path.join(os.path.dirname(segments_path), f"{task_id}_highlights.json")
+    indices = body.get("highlighted_indices", [])
+    with open(highlights_path, "w", encoding="utf-8") as f:
+        json.dump({"highlighted_indices": indices}, f, ensure_ascii=False)
+
+    return {"highlighted_indices": indices, "saved": True}
+
+
+@router.get("/{task_id}/highlights")
+async def get_highlights(task_id: str):
+    """获取重点语句标记"""
+    manager = get_task_manager()
+    task = manager.get_task(task_id)
+    if not task:
+        raise HTTPException(status_code=404, detail=f"任务不存在: {task_id}")
+
+    result_summary = task.get("result_summary")
+    if not result_summary:
+        return {"highlighted_indices": []}
+
+    try:
+        summary = json.loads(result_summary)
+        segments_path = summary.get("segments_path")
+    except json.JSONDecodeError:
+        return {"highlighted_indices": []}
+
+    if not segments_path:
+        return {"highlighted_indices": []}
+
+    highlights_path = os.path.join(os.path.dirname(segments_path), f"{task_id}_highlights.json")
+    if not os.path.exists(highlights_path):
+        return {"highlighted_indices": []}
+
+    with open(highlights_path, "r", encoding="utf-8") as f:
+        data = json.load(f)
+    return {"highlighted_indices": data.get("highlighted_indices", [])}
 
 
 @router.get("/{task_id}")

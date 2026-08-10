@@ -60,9 +60,13 @@
             v-for="(seg, i) in segments"
             :key="i"
             class="segment-item"
-            :class="{ active: activeSegment === i }"
+            :class="{ active: activeSegment === i, highlighted: highlightedIndices.has(i) }"
             @click="seekTo(seg.start)"
           >
+            <button class="highlight-btn" :class="{ on: highlightedIndices.has(i) }"
+              @click.stop="toggleHighlight(i)" :title="highlightedIndices.has(i) ? '取消标记' : '标记为重点'">
+              {{ highlightedIndices.has(i) ? '★' : '☆' }}
+            </button>
             <span class="seg-time">{{ formatSegTime(seg.start) }} - {{ formatSegTime(seg.end) }}</span>
             <span class="seg-text">{{ seg.text }}</span>
           </div>
@@ -87,11 +91,12 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
-import { getTask, getTaskSegments } from '../api.js'
+import { getTask, getTaskSegments, getHighlights, saveHighlights } from '../api.js'
 
 const route = useRoute()
 const task = ref(null)
 const segments = ref([])
+const highlightedIndices = ref(new Set())
 const loading = ref(true)
 const pollingCount = ref(0)
 let timer = null
@@ -191,6 +196,12 @@ async function fetchTask() {
       } catch {
         // 分段加载失败，显示纯文本
       }
+      try {
+        const hlData = await getHighlights(route.params.id)
+        highlightedIndices.value = new Set(hlData.highlighted_indices || [])
+      } catch {
+        // 忽略
+      }
     }
     if (task.value.status === 'pending' || task.value.status === 'processing') {
       pollingCount.value++
@@ -248,6 +259,22 @@ function progressLabel(p) {
   if (p < 0.3) return '转写中...'
   if (p < 0.95) return '保存结果...'
   return '即将完成...'
+}
+
+async function toggleHighlight(index) {
+  if (highlightedIndices.value.has(index)) {
+    highlightedIndices.value.delete(index)
+  } else {
+    highlightedIndices.value.add(index)
+  }
+  // 触发响应式更新
+  highlightedIndices.value = new Set(highlightedIndices.value)
+  // 保存到后端
+  try {
+    await saveHighlights(route.params.id, [...highlightedIndices.value])
+  } catch {
+    // 保存失败忽略
+  }
 }
 </script>
 
@@ -459,8 +486,8 @@ function progressLabel(p) {
 
 .segment-item {
   display: flex;
-  gap: 12px;
-  padding: 8px 12px;
+  gap: 8px;
+  padding: 8px 10px;
   background: #fff;
   border-radius: 6px;
   border: 1px solid #e2e8f0;
@@ -478,6 +505,37 @@ function progressLabel(p) {
   border-color: #4f46e5;
   background: #eef2ff;
   box-shadow: 0 0 0 1px #4f46e5;
+}
+
+.segment-item.highlighted {
+  background: #fffbeb;
+  border-color: #f59e0b;
+}
+
+.segment-item.highlighted.active {
+  border-color: #4f46e5;
+  background: #eef2ff;
+  border-left: 3px solid #f59e0b;
+}
+
+.highlight-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 1.1rem;
+  padding: 0 2px;
+  line-height: 1;
+  color: #d1d5db;
+  transition: color 0.15s;
+  flex-shrink: 0;
+}
+
+.highlight-btn:hover {
+  color: #f59e0b;
+}
+
+.highlight-btn.on {
+  color: #f59e0b;
 }
 
 .seg-time {
