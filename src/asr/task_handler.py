@@ -82,7 +82,14 @@ async def handle_asr_task(task_id: str, params: Dict[str, Any]) -> Dict[str, Any
     with open(json_path, "w", encoding="utf-8") as f:
         json.dump(segments_data, f, ensure_ascii=False, indent=2)
 
-    logger.info("ASR 结果已保存: %s (%d 字, %d 段)", txt_path, len(result.text), len(segments_data))
+    # 自动标记重点（关键词匹配）
+    auto_highlighted = _auto_highlight(segments_data, config.auto_highlight_keywords)
+    highlights_path = output_dir / f"{task_id}_highlights.json"
+    with open(highlights_path, "w", encoding="utf-8") as f:
+        json.dump({"highlighted_indices": auto_highlighted}, f, ensure_ascii=False)
+
+    logger.info("ASR 结果已保存: %s (%d 字, %d 段, %d 重点)",
+                txt_path, len(result.text), len(segments_data), len(auto_highlighted))
 
     return {
         "result_path": str(txt_path),
@@ -96,7 +103,17 @@ async def handle_asr_task(task_id: str, params: Dict[str, Any]) -> Dict[str, Any
     }
 
 
-def _update_progress(task_id: str, progress: float) -> None:
+def _auto_highlight(segments: list, keywords: list) -> list:
+    """根据关键词自动标记重点语句，返回高亮索引列表"""
+    if not keywords:
+        return []
+    highlighted = []
+    for i, seg in enumerate(segments):
+        for kw in keywords:
+            if kw in seg["text"]:
+                highlighted.append(i)
+                break
+    return highlighted
     """更新任务进度到数据库"""
     try:
         from src.task.queue import get_task_manager

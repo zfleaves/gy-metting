@@ -54,7 +54,7 @@
 
         <h3>转写结果（{{ parsedResult.segments_count || segments.length }} 段，{{ parsedResult.duration_seconds?.toFixed(0) || 0 }}秒）
           <button class="auto-mark-btn" @click="autoHighlight" :disabled="autoMarking">
-            {{ autoMarking ? '标记中...' : '🤖 自动标记重点' }}
+            {{ autoMarking ? '...' : '🔄 重新自动标记' }}
           </button>
         </h3>
 
@@ -284,13 +284,8 @@ const autoMarking = ref(false)
 async function autoHighlight() {
   autoMarking.value = true
   try {
-    // 从后端获取关键词列表
     const res = await fetch(`/api/tasks/${route.params.id}/auto-highlight-keywords`)
     const { keywords } = await res.json()
-    if (!keywords.length) {
-      alert('未配置自动标记关键词，请在 .env 中设置 ASR_AUTO_HIGHLIGHT')
-      return
-    }
     const newSet = new Set(highlightedIndices.value)
     segments.value.forEach((seg, i) => {
       for (const kw of keywords) {
