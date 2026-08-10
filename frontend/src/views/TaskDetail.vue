@@ -58,13 +58,28 @@
           </button>
         </h3>
 
+        <!-- 开关 -->
+        <div class="toggle-row">
+          <label class="toggle-label" :class="{ on: showHighlights }" @click="showHighlights = !showHighlights">
+            <span class="toggle-switch"></span>
+            重点高亮
+          </label>
+          <label class="toggle-label" :class="{ on: hideTrivial }" @click="hideTrivial = !hideTrivial">
+            <span class="toggle-switch"></span>
+            折叠旁支
+          </label>
+          <span v-if="hideTrivial && segments.length > filteredSegments.length" class="filtered-count">
+            （已折叠 {{ segments.length - filteredSegments.length }} 段旁支）
+          </span>
+        </div>
+
         <!-- 分段时间轴 -->
-        <div v-if="segments.length" class="segments-list">
+        <div v-if="filteredSegments.length" class="segments-list">
           <div
-            v-for="(seg, i) in segments"
+            v-for="(seg, i) in filteredSegments"
             :key="i"
             class="segment-item"
-            :class="{ active: activeSegment === i, highlighted: highlightedIndices.has(i) }"
+            :class="{ active: activeSegment === i, highlighted: displayHighlights.has(i) }"
             @click="seekTo(seg.start)"
           >
             <button class="highlight-btn" :class="{ on: highlightedIndices.has(i) }"
@@ -101,6 +116,9 @@ const route = useRoute()
 const task = ref(null)
 const segments = ref([])
 const highlightedIndices = ref(new Set())
+const showHighlights = ref(true)  // 开关：自动标记重点
+const hideTrivial = ref(true)     // 开关：折叠旁支末节
+const ignoreKeywords = ref([])
 const loading = ref(true)
 const pollingCount = ref(0)
 let timer = null
@@ -131,6 +149,22 @@ const audioUrl = computed(() => {
     return `/api/audio/${match[1]}`
   }
   return null
+})
+
+// 过滤后的分段（根据开关决定是否隐藏旁支）
+const filteredSegments = computed(() => {
+  if (!hideTrivial.value || !ignoreKeywords.value.length) return segments.value
+  return segments.value.filter(seg => {
+    for (const kw of ignoreKeywords.value) {
+      if (seg.text.includes(kw)) return false
+    }
+    return true
+  })
+})
+
+// 显示的突出标记（根据开关决定）
+const displayHighlights = computed(() => {
+  return showHighlights.value ? highlightedIndices.value : new Set()
 })
 
 function initAudio() {
@@ -178,10 +212,11 @@ function seekAudio(e) {
 function onTimeUpdate() {
   if (!audio.value) return
   currentTime.value = audio.value.currentTime
-  if (!segments.value.length) return
+  const segs = hideTrivial.value ? filteredSegments.value : segments.value
+  if (!segs.length) return
   let found = -1
-  for (let i = 0; i < segments.value.length; i++) {
-    if (currentTime.value >= segments.value[i].start && currentTime.value < segments.value[i].end) {
+  for (let i = 0; i < segs.length; i++) {
+    if (currentTime.value >= segs[i].start && currentTime.value < segs[i].end) {
       found = i
       break
     }
@@ -198,11 +233,18 @@ async function fetchTask() {
         const segData = await getTaskSegments(route.params.id)
         segments.value = segData.segments || []
       } catch {
-        // 分段加载失败，显示纯文本
+        // 分段加载失败
       }
       try {
         const hlData = await getHighlights(route.params.id)
         highlightedIndices.value = new Set(hlData.highlighted_indices || [])
+      } catch {
+        // 忽略
+      }
+      try {
+        const kwRes = await fetch(`/api/tasks/${route.params.id}/auto-highlight-keywords`)
+        const kwData = await kwRes.json()
+        ignoreKeywords.value = kwData.ignore_keywords || []
       } catch {
         // 忽略
       }
@@ -521,6 +563,63 @@ async function autoHighlight() {
 .auto-mark-btn:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+}
+
+/* 开关 */
+.toggle-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+
+.toggle-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.8rem;
+  color: #64748b;
+  cursor: pointer;
+  user-select: none;
+}
+
+.toggle-label.on {
+  color: #334155;
+}
+
+.toggle-switch {
+  width: 32px;
+  height: 18px;
+  background: #d1d5db;
+  border-radius: 9px;
+  position: relative;
+  transition: background 0.2s;
+}
+
+.toggle-switch::after {
+  content: '';
+  width: 14px;
+  height: 14px;
+  background: #fff;
+  border-radius: 50%;
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  transition: transform 0.2s;
+}
+
+.toggle-label.on .toggle-switch {
+  background: #4f46e5;
+}
+
+.toggle-label.on .toggle-switch::after {
+  transform: translateX(14px);
+}
+
+.filtered-count {
+  font-size: 0.75rem;
+  color: #94a3b8;
 }
 
 .result-text {
