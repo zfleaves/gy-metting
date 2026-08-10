@@ -699,6 +699,7 @@ async function autoHighlight() {
   line-height: 2;
   font-size: 0.95rem;
   color: #334155;
+  white-space: pre-wrap;
 }
 
 .fulltext-seg {

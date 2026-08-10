@@ -44,6 +44,39 @@ def _apply_word_replace(text: str, replace_map: dict) -> str:
     return result
 
 
+def _add_punctuation(segments: list) -> list:
+    """
+    根据段间停顿自动加标点。
+
+    规则:
+    - 段间间隔 > 2.0s → 上一段加句号，另起新段落
+    - 段间间隔 > 0.8s → 上一段加句号
+    - 段间间隔 > 0.3s → 上一段加逗号
+    """
+    if len(segments) < 2:
+        if segments and segments[0].text and segments[0].text[-1] not in "。！？，、；：":
+            segments[0].text += "。"
+        return segments
+
+    result = []
+    for i, seg in enumerate(segments):
+        text = seg.text
+        if i < len(segments) - 1:
+            gap = segments[i + 1].start - seg.end
+            if gap > 2.0:
+                text += "。\n\n"
+            elif gap > 0.8:
+                text += "。"
+            elif gap > 0.3:
+                text += "，"
+        else:
+            if text and text[-1] not in "。！？，、；：":
+                text += "。"
+        seg.text = text
+        result.append(seg)
+    return result
+
+
 class WhisperEngine(BaseASREngine):
     """Faster-Whisper 引擎"""
 
@@ -136,7 +169,9 @@ class WhisperEngine(BaseASREngine):
                 ))
                 full_text_parts.append(text)
 
-        full_text = " ".join(full_text_parts)
+        # 加标点断句
+        segments = _add_punctuation(segments)
+        full_text = "".join(s.text for s in segments)
         duration = info.duration if hasattr(info, 'duration') else 0.0
         language = info.language if hasattr(info, 'language') else "zh"
 
