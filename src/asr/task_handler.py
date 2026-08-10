@@ -75,8 +75,9 @@ async def handle_asr_task(task_id: str, params: Dict[str, Any]) -> Dict[str, Any
     return {
         "result_path": str(txt_path),
         "segments_path": str(json_path),
+        "audio_path": audio_path,
         "text_preview": result.text[:500],
-        "segments": segments_data[:20],  # 前 20 段直接返回，避免 DB 字段过大
+        "segments": segments_data[:50],  # 前 50 段直接返回给前端显示
         "segments_count": len(segments_data),
         "language": result.language,
         "duration_seconds": result.duration_seconds,
