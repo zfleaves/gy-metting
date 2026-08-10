@@ -12,8 +12,9 @@ venv/
 # Project Context MCP 数据库
 .project-context/
 
-# 本地数据目录
-data/
+# 本地数据目录（保留目录结构，忽略实际数据文件）
+data/*
+!data/**/.gitkeep
 
 # IDE
 .idea/

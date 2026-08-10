@@ -1,0 +1,47 @@
+[project]
+name = "gy-meeting"
+version = "0.1.0"
+description = "AI 智能会议纪要轻量化中台"
+requires-python = ">=3.10"
+readme = "README.md"
+license = { text = "MIT" }
+authors = [
+    { name = "gy-meeting team" }
+]
+keywords = ["meeting", "ai", "asr", "minutes", "summary"]
+
+dependencies = [
+    "fastapi>=0.100.0",
+    "uvicorn[standard]>=0.23.0",
+    "pydantic>=2.0.0",
+    "pydantic-settings>=2.0.0",
+    "sqlalchemy>=2.0.0",
+    "faster-whisper>=1.0.0",
+    "python-docx>=0.8.0",
+    "PyMuPDF>=1.23.0",
+    "tiktoken>=0.5.0",
+    "requests>=2.25.0",
+    "PyYAML>=5.4",
+    "python-multipart>=0.0.6",
+    "aiofiles>=23.0.0",
+    "httpx>=0.24.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-asyncio>=0.21.0",
+    "pytest-cov>=4.0.0",
+    "httpx>=0.24.0",
+]
+
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
