@@ -327,7 +327,9 @@ function statusLabel(s) {
 
 function formatTime(t) {
   if (!t) return ''
-  return new Date(t).toLocaleString('zh-CN')
+  // 后端返回的是 UTC 时间，转本地时区显示
+  const d = new Date(t + 'Z')
+  return d.toLocaleString('zh-CN')
 }
 
 function formatSegTime(seconds) {

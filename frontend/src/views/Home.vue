@@ -67,7 +67,8 @@ function statusLabel(s) {
 
 function formatTime(t) {
   if (!t) return ''
-  return new Date(t).toLocaleString('zh-CN')
+  const d = new Date(t + 'Z')
+  return d.toLocaleString('zh-CN')
 }
 </script>
 
