@@ -52,13 +52,19 @@
           <span class="audio-time">{{ formatSegTime(currentTime) }} / {{ formatSegTime(duration) }}</span>
         </div>
 
-        <h3>转写结果（{{ parsedResult.segments_count || segments.length }} 段，{{ parsedResult.duration_seconds?.toFixed(0) || 0 }}秒）
+        <h3>转写结果（{{ parsedResult.segments_count || segments.length }} 段，{{ parsedResult.duration_seconds?.toFixed(0) || 0 }}秒）</h3>
+
+        <!-- 视图切换 + 开关 -->
+        <div class="toggle-row">
+          <div class="view-tabs">
+            <button class="view-tab" :class="{ active: viewMode === 'segments' }" @click="viewMode = 'segments'">分段对照</button>
+            <button class="view-tab" :class="{ active: viewMode === 'fulltext' }" @click="viewMode = 'fulltext'">全文预览</button>
+          </div>
           <button class="auto-mark-btn" @click="autoHighlight" :disabled="autoMarking">
             {{ autoMarking ? '...' : '🔄 重新自动标记' }}
           </button>
-        </h3>
+        </div>
 
-        <!-- 开关 -->
         <div class="toggle-row">
           <label class="toggle-label" :class="{ on: showHighlights }" @click="showHighlights = !showHighlights">
             <span class="toggle-switch"></span>
@@ -74,7 +80,7 @@
         </div>
 
         <!-- 分段时间轴 -->
-        <div v-if="filteredSegments.length" class="segments-list">
+        <div v-if="viewMode === 'segments' && filteredSegments.length" class="segments-list">
           <div
             v-for="(seg, i) in filteredSegments"
             :key="i"
@@ -103,7 +109,25 @@
           </div>
         </div>
 
-        <div v-else-if="parsedResult.text_preview" class="result-text">{{ parsedResult.text_preview }}</div>
+        <div v-else-if="viewMode === 'segments' && parsedResult.text_preview" class="result-text">{{ parsedResult.text_preview }}</div>
+
+        <!-- 全文预览 -->
+        <div v-if="viewMode === 'fulltext'" class="fulltext-view">
+          <div class="fulltext-content">
+            <span
+              v-for="(seg, i) in segments"
+              :key="i"
+              class="fulltext-seg"
+              :class="{
+                highlighted: displayHighlights.has(i),
+                active: activeSegment === i,
+                hidden: hideTrivial && isTrivial(seg.text)
+              }"
+              @click="seekTo(seg.start)"
+              :title="formatSegTime(seg.start)"
+            >{{ seg.text }} </span>
+          </div>
+        </div>
 
         <div v-if="parsedResult.result_path" class="result-path">
           完整文件: {{ parsedResult.result_path }}
@@ -131,6 +155,7 @@ const highlightedIndices = ref(new Set())
 const showHighlights = ref(true)  // 开关：自动标记重点
 const hideTrivial = ref(true)     // 开关：折叠旁支末节
 const ignoreKeywords = ref([])
+const viewMode = ref('segments')  // 'segments' | 'fulltext'
 const loading = ref(true)
 const pollingCount = ref(0)
 let timer = null
@@ -370,7 +395,6 @@ async function saveEdit(index) {
 async function markFluff(index, text) {
   try {
     await addFluff(text)
-    // 同时折叠这条
     hideTrivial.value = true
     if (!ignoreKeywords.value.includes(text)) {
       ignoreKeywords.value.push(text)
@@ -378,6 +402,14 @@ async function markFluff(index, text) {
   } catch {
     // 忽略
   }
+}
+
+function isTrivial(text) {
+  if (!ignoreKeywords.value.length) return false
+  for (const kw of ignoreKeywords.value) {
+    if (text.includes(kw)) return true
+  }
+  return false
 }
 
 async function autoHighlight() {
@@ -622,7 +654,77 @@ async function autoHighlight() {
   cursor: not-allowed;
 }
 
-/* 开关 */
+/* 视图切换 */
+.view-tabs {
+  display: flex;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.view-tab {
+  padding: 5px 14px;
+  border: none;
+  background: #fff;
+  color: #64748b;
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.view-tab + .view-tab {
+  border-left: 1px solid #e2e8f0;
+}
+
+.view-tab.active {
+  background: #4f46e5;
+  color: #fff;
+}
+
+.view-tab:hover:not(.active) {
+  background: #f1f5f9;
+}
+
+/* 全文预览 */
+.fulltext-view {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 20px;
+  max-height: 500px;
+  overflow-y: auto;
+}
+
+.fulltext-content {
+  line-height: 2;
+  font-size: 0.95rem;
+  color: #334155;
+}
+
+.fulltext-seg {
+  cursor: pointer;
+  border-radius: 2px;
+  transition: background 0.1s;
+}
+
+.fulltext-seg:hover {
+  background: #eef2ff;
+}
+
+.fulltext-seg.highlighted {
+  background: #fffbeb;
+  border-bottom: 2px solid #f59e0b;
+}
+
+.fulltext-seg.active {
+  background: #4f46e5;
+  color: #fff;
+}
+
+.fulltext-seg.hidden {
+  opacity: 0.2;
+  font-size: 0.8rem;
+}
 .toggle-row {
   display: flex;
   align-items: center;
