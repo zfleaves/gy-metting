@@ -80,14 +80,26 @@
             :key="i"
             class="segment-item"
             :class="{ active: activeSegment === i, highlighted: displayHighlights.has(i) }"
-            @click="seekTo(seg.start)"
           >
             <button class="highlight-btn" :class="{ on: highlightedIndices.has(i) }"
               @click.stop="toggleHighlight(i)" :title="highlightedIndices.has(i) ? '取消标记' : '标记为重点'">
               {{ highlightedIndices.has(i) ? '★' : '☆' }}
             </button>
-            <span class="seg-time">{{ formatSegTime(seg.start) }} - {{ formatSegTime(seg.end) }}</span>
-            <span class="seg-text">{{ seg.text }}</span>
+            <span class="seg-time" @click="seekTo(seg.start)">{{ formatSegTime(seg.start) }} - {{ formatSegTime(seg.end) }}</span>
+            <span class="seg-text" :class="{ editing: editingIndex === i }">
+              <template v-if="editingIndex === i">
+                <input v-model="editText" class="edit-input" @keyup.enter="saveEdit(i)" @keyup.escape="cancelEdit" />
+                <button class="seg-action-btn" @click="saveEdit(i)">✓</button>
+                <button class="seg-action-btn" @click="cancelEdit">✕</button>
+              </template>
+              <template v-else>
+                {{ seg.text }}
+              </template>
+            </span>
+            <span class="seg-actions">
+              <button class="seg-action-btn" @click.stop="startEdit(i, seg.text)" title="纠正文字">✎</button>
+              <button class="seg-action-btn" @click.stop="markFluff(i, seg.text)" title="标记为废话">🗑</button>
+            </span>
           </div>
         </div>
 
@@ -110,7 +122,7 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
-import { getTask, getTaskSegments, getHighlights, saveHighlights } from '../api.js'
+import { getTask, getTaskSegments, getHighlights, saveHighlights, addCorrection, addFluff } from '../api.js'
 
 const route = useRoute()
 const task = ref(null)
@@ -322,6 +334,51 @@ async function toggleHighlight(index) {
 }
 
 const autoMarking = ref(false)
+
+// 文字编辑
+const editingIndex = ref(-1)
+const editText = ref('')
+
+function startEdit(index, text) {
+  editingIndex.value = index
+  editText.value = text
+}
+
+function cancelEdit() {
+  editingIndex.value = -1
+  editText.value = ''
+}
+
+async function saveEdit(index) {
+  const oldText = segments.value[index]?.text || ''
+  const newText = editText.value.trim()
+  if (!newText || newText === oldText) {
+    cancelEdit()
+    return
+  }
+  // 保存到用户更正记录
+  try {
+    await addCorrection(oldText, newText)
+  } catch {
+    // 忽略
+  }
+  // 本地更新显示
+  segments.value[index] = { ...segments.value[index], text: newText }
+  cancelEdit()
+}
+
+async function markFluff(index, text) {
+  try {
+    await addFluff(text)
+    // 同时折叠这条
+    hideTrivial.value = true
+    if (!ignoreKeywords.value.includes(text)) {
+      ignoreKeywords.value.push(text)
+    }
+  } catch {
+    // 忽略
+  }
+}
 
 async function autoHighlight() {
   autoMarking.value = true
@@ -702,6 +759,53 @@ async function autoHighlight() {
 .seg-text {
   color: #334155;
   line-height: 1.6;
+  flex: 1;
+}
+
+.seg-actions {
+  display: flex;
+  gap: 4px;
+  opacity: 0;
+  transition: opacity 0.15s;
+  flex-shrink: 0;
+}
+
+.segment-item:hover .seg-actions {
+  opacity: 1;
+}
+
+.seg-action-btn {
+  background: none;
+  border: 1px solid #e2e8f0;
+  border-radius: 4px;
+  cursor: pointer;
+  padding: 2px 6px;
+  font-size: 0.75rem;
+  color: #94a3b8;
+  transition: all 0.15s;
+}
+
+.seg-action-btn:hover {
+  border-color: #4f46e5;
+  color: #4f46e5;
+  background: #eef2ff;
+}
+
+.edit-input {
+  flex: 1;
+  padding: 4px 8px;
+  border: 1px solid #4f46e5;
+  border-radius: 4px;
+  font-size: 0.9rem;
+  font-family: inherit;
+  outline: none;
+}
+
+.seg-text.editing {
+  flex: 1;
+  display: flex;
+  gap: 4px;
+  align-items: center;
 }
 
 .result-path {

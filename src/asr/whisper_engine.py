@@ -26,9 +26,18 @@ def _to_simplified(text: str) -> str:
 
 
 def _apply_word_replace(text: str, replace_map: dict) -> str:
-    """应用自定义词替换"""
+    """应用自定义词替换 + 用户更正记录"""
     if not replace_map:
         return text
+    # 先应用用户累计的更正
+    try:
+        from src.storage.user_data import get_corrections
+        user_map = get_corrections()
+        for wrong, correct in user_map.items():
+            text = text.replace(wrong, correct)
+    except Exception:
+        pass
+    # 再应用 .env 配置的词替换
     result = text
     for wrong, correct in replace_map.items():
         result = result.replace(wrong, correct)

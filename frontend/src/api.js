@@ -55,6 +55,22 @@ export function getHighlights(taskId) {
   return request(`/api/tasks/${taskId}/highlights`)
 }
 
+// 文字更正
+export function addCorrection(wrong, correct) {
+  return request('/api/tasks/corrections', {
+    method: 'POST',
+    body: JSON.stringify({ wrong, correct }),
+  })
+}
+
+// 标记废话
+export function addFluff(text) {
+  return request('/api/tasks/fluff', {
+    method: 'POST',
+    body: JSON.stringify({ text }),
+  })
+}
+
 // 查询任务列表
 export function listTasks({ status, task_type, limit = 20, offset = 0 } = {}) {
   const query = new URLSearchParams()

@@ -154,6 +154,60 @@ async def get_auto_highlight_keywords(task_id: str):
     }
 
 
+# ============================================================
+# 用户自学习 API
+# ============================================================
+
+@router.post("/corrections")
+async def add_correction(body: dict):
+    """添加文字更正：{wrong: "错词", correct: "正确词"}"""
+    from src.storage.user_data import add_correction
+    wrong = body.get("wrong", "").strip()
+    correct = body.get("correct", "").strip()
+    if not wrong or not correct:
+        raise HTTPException(status_code=400, detail="wrong 和 correct 不能为空")
+    corrections = add_correction(wrong, correct)
+    return {"corrections": corrections, "count": len(corrections)}
+
+
+@router.get("/corrections")
+async def list_corrections():
+    """获取所有文字更正记录"""
+    from src.storage.user_data import get_corrections
+    corrections = get_corrections()
+    return {"corrections": corrections, "count": len(corrections)}
+
+
+@router.delete("/corrections")
+async def delete_correction(body: dict):
+    """删除文字更正：{wrong: "错词"}"""
+    from src.storage.user_data import remove_correction
+    wrong = body.get("wrong", "").strip()
+    if not wrong:
+        raise HTTPException(status_code=400, detail="wrong 不能为空")
+    corrections = remove_correction(wrong)
+    return {"corrections": corrections, "count": len(corrections)}
+
+
+@router.post("/fluff")
+async def add_fluff(body: dict):
+    """添加废话标记：{text: "废话文本"}"""
+    from src.storage.user_data import add_fluff_pattern
+    text = body.get("text", "").strip()
+    if not text:
+        raise HTTPException(status_code=400, detail="text 不能为空")
+    patterns = add_fluff_pattern(text)
+    return {"patterns": patterns, "count": len(patterns)}
+
+
+@router.get("/fluff")
+async def list_fluff():
+    """获取所有废话模式"""
+    from src.storage.user_data import get_fluff_patterns
+    patterns = get_fluff_patterns()
+    return {"patterns": patterns, "count": len(patterns)}
+
+
 @router.get("/{task_id}")
 async def get_task(task_id: str):
     """查询任务状态与结果"""
