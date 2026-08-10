@@ -38,11 +38,22 @@
       </div>
 
       <!-- 转写结果 -->
-      <div v-if="task.status === 'completed' && task.result_summary" class="result-card">
-        <h3>转写结果预览</h3>
-        <div class="result-text">{{ task.result_summary }}</div>
-        <div v-if="task.result_path" class="result-path">
-          完整结果: {{ task.result_path }}
+      <div v-if="task.status === 'completed' && parsedResult" class="result-card">
+        <h3>转写结果（{{ parsedResult.segments_count || 0 }} 段，{{ parsedResult.duration_seconds?.toFixed(0) || 0 }}秒）</h3>
+
+        <!-- 分段时间轴 -->
+        <div v-if="parsedResult.segments?.length" class="segments-list">
+          <div v-for="(seg, i) in parsedResult.segments" :key="i" class="segment-item">
+            <span class="seg-time">{{ formatSegTime(seg.start) }} - {{ formatSegTime(seg.end) }}</span>
+            <span class="seg-text">{{ seg.text }}</span>
+          </div>
+        </div>
+
+        <!-- 纯文本预览 -->
+        <div v-else class="result-text">{{ parsedResult.text_preview }}</div>
+
+        <div v-if="parsedResult.result_path" class="result-path">
+          完整文件: {{ parsedResult.result_path }}
         </div>
       </div>
 
@@ -56,7 +67,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { getTask } from '../api.js'
 
@@ -65,6 +76,15 @@ const task = ref(null)
 const loading = ref(true)
 const pollingCount = ref(0)
 let timer = null
+
+const parsedResult = computed(() => {
+  if (!task.value?.result_summary) return null
+  try {
+    return JSON.parse(task.value.result_summary)
+  } catch {
+    return { text_preview: task.value.result_summary }
+  }
+})
 
 async function fetchTask() {
   try {
@@ -100,6 +120,12 @@ function statusLabel(s) {
 function formatTime(t) {
   if (!t) return ''
   return new Date(t).toLocaleString('zh-CN')
+}
+
+function formatSegTime(seconds) {
+  const m = Math.floor(seconds / 60)
+  const s = Math.floor(seconds % 60)
+  return `${m}:${String(s).padStart(2, '0')}`
 }
 </script>
 
@@ -234,6 +260,36 @@ function formatTime(t) {
   white-space: pre-wrap;
   line-height: 1.7;
   color: #334155;
+}
+
+.segments-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.segment-item {
+  display: flex;
+  gap: 12px;
+  padding: 8px 12px;
+  background: #fff;
+  border-radius: 6px;
+  border: 1px solid #e2e8f0;
+  align-items: flex-start;
+}
+
+.seg-time {
+  color: #4f46e5;
+  font-size: 0.8rem;
+  font-family: var(--mono);
+  white-space: nowrap;
+  padding-top: 1px;
+  min-width: 80px;
+}
+
+.seg-text {
+  color: #334155;
+  line-height: 1.6;
 }
 
 .result-path {

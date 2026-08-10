@@ -4,6 +4,7 @@ ASR 任务处理器 (DESIGN.md §3.1.1 + §3.6)
 连接任务队列与 ASR 引擎，将转写结果保存到文件。
 """
 
+import json
 import os
 from typing import Any, Dict
 
@@ -35,7 +36,7 @@ async def handle_asr_task(task_id: str, params: Dict[str, Any]) -> Dict[str, Any
         params: {"audio_path": "..."}
 
     Returns:
-        {"result_path": "...", "text_preview": "...", "segments_count": N}
+        {"result_path": "...", "text_preview": "...", "segments": [...], "segments_count": N}
     """
     audio_path = params.get("audio_path")
     if not audio_path:
@@ -52,7 +53,7 @@ async def handle_asr_task(task_id: str, params: Dict[str, Any]) -> Dict[str, Any
     output_dir = config.resolve_path(config.OUTPUT_DIR) / "transcripts"
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    # 保存完整文本
+    # 保存纯文本
     txt_path = output_dir / f"{task_id}.txt"
     with open(txt_path, "w", encoding="utf-8") as f:
         f.write(result.text)
@@ -60,12 +61,23 @@ async def handle_asr_task(task_id: str, params: Dict[str, Any]) -> Dict[str, Any
         for seg in result.segments:
             f.write(f"[{seg.start:.1f}s - {seg.end:.1f}s] {seg.text}\n")
 
-    logger.info("ASR 结果已保存: %s (%d 字)", txt_path, len(result.text))
+    # 保存分段 JSON（前端用）
+    json_path = output_dir / f"{task_id}.json"
+    segments_data = [
+        {"start": round(seg.start, 1), "end": round(seg.end, 1), "text": seg.text}
+        for seg in result.segments
+    ]
+    with open(json_path, "w", encoding="utf-8") as f:
+        json.dump(segments_data, f, ensure_ascii=False, indent=2)
+
+    logger.info("ASR 结果已保存: %s (%d 字, %d 段)", txt_path, len(result.text), len(segments_data))
 
     return {
         "result_path": str(txt_path),
+        "segments_path": str(json_path),
         "text_preview": result.text[:500],
-        "segments_count": len(result.segments),
+        "segments": segments_data[:20],  # 前 20 段直接返回，避免 DB 字段过大
+        "segments_count": len(segments_data),
         "language": result.language,
         "duration_seconds": result.duration_seconds,
         "engine": result.engine,

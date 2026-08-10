@@ -192,6 +192,9 @@ class TaskManager:
                 self._complete_task(task_id, result)
             except asyncio.TimeoutError:
                 self._fail_task_by_id(task_id, f"任务超时 ({self.timeout_minutes} 分钟)")
+            except asyncio.CancelledError:
+                self._fail_task_by_id(task_id, "任务被取消")
+                raise
             except Exception as e:
                 self._fail_task_by_id(task_id, str(e))
                 logger.error("任务 %s 失败: %s\n%s", task_id, e, traceback.format_exc())

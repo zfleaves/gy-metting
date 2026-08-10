@@ -8,7 +8,7 @@ from src.storage.models import TaskType, TaskStatus
 
 # 测试用处理器
 async def _echo_handler(task_id: str, params: dict) -> dict:
-    await asyncio.sleep(0.02)
+    await asyncio.sleep(0.05)
     msg = params.get("msg", "") if isinstance(params, dict) else ""
     return {"echo": msg, "task_id": task_id}
 
@@ -37,14 +37,18 @@ class TestTaskManager:
             )
             assert task_id
 
-            # 等待任务完成
-            await asyncio.sleep(0.2)
+            # 等待任务完成（轮询）
+            for _ in range(10):
+                await asyncio.sleep(0.1)
+                task = self.manager.get_task(task_id)
+                if task["status"] in ("completed", "failed"):
+                    break
 
             task = self.manager.get_task(task_id)
-            assert task is not None
-            assert task["status"] == "completed"
+            assert task is not None, f"Task {task_id} not found"
+            assert task["status"] == "completed", f"Expected completed, got {task['status']}: {task.get('error_message', '')}"
             assert task["progress"] == 1.0
-            assert "hello" in task["result_summary"]
+            assert "hello" in (task["result_summary"] or "")
         finally:
             await self.manager.stop()
 
@@ -90,10 +94,19 @@ class TestTaskManager:
                 tid = await self.manager.submit(TaskType("asr"), params={"msg": f"task-{i}"})
                 ids.append(tid)
 
-            await asyncio.sleep(0.3)
+            for i in range(10):
+                await asyncio.sleep(0.1)
+                all_done = True
+                for tid in ids:
+                    t = self.manager.get_task(tid)
+                    if t["status"] not in ("completed", "failed"):
+                        all_done = False
+                        break
+                if all_done:
+                    break
 
             for tid in ids:
                 task = self.manager.get_task(tid)
-                assert task["status"] == "completed"
+                assert task["status"] == "completed", f"Task {tid}: {task['status']} - {task.get('error_message', '')}"
         finally:
             await self.manager.stop()

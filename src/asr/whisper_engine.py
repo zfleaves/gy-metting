@@ -16,6 +16,15 @@ from src.log_utils import get_logger, LogTimer
 logger = get_logger(__name__)
 
 
+def _to_simplified(text: str) -> str:
+    """繁体转简体"""
+    try:
+        from zhconv import convert
+        return convert(text, "zh-cn")
+    except ImportError:
+        return text
+
+
 class WhisperEngine(BaseASREngine):
     """Faster-Whisper 引擎"""
 
@@ -94,16 +103,17 @@ class WhisperEngine(BaseASREngine):
             except Exception as e:
                 raise ASRError(f"Faster-Whisper 转写失败: {e}") from e
 
-            # 收集所有片段
+            # 收集所有片段并转简体
             segments = []
             full_text_parts = []
             for seg in segments_iter:
+                text = _to_simplified(seg.text.strip())
                 segments.append(ASRSegment(
                     start=seg.start,
                     end=seg.end,
-                    text=seg.text.strip(),
+                    text=text,
                 ))
-                full_text_parts.append(seg.text.strip())
+                full_text_parts.append(text)
 
         full_text = " ".join(full_text_parts)
         duration = info.duration if hasattr(info, 'duration') else 0.0
