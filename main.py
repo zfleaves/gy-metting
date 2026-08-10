@@ -1,9 +1,9 @@
-""""
+"""
 AI 智能会议纪要轻量化中台 — 入口文件
 
 用法:
-    python main.py              # 启动 HTTP API 服务
-    python cli.py submit ...    # CLI 模式（待实现）
+    python main.py              # 启动 HTTP API 服务（开发模式）
+    uvicorn src.app:create_app --factory --reload  # 等价命令
 
 基于 DESIGN.md V1.1
 """
@@ -16,10 +16,19 @@ sys.path.insert(0, str(Path(__file__).resolve().parent / "src"))
 
 
 def main():
-    """启动 FastAPI 服务（占位，M1 实现）"""
-    print("gy-meeting v0.1.0 — AI 智能会议纪要轻量化中台")
-    print("DESIGN.md V1.1 已就绪，项目骨架已搭建。")
-    print("下一步：M1 基础能力搭建 → python main.py 启动服务")
+    """启动 FastAPI 服务"""
+    import uvicorn
+    from src.config import get_config
+
+    config = get_config()
+    uvicorn.run(
+        "src.app:create_app",
+        factory=True,
+        host=config.SERVER_HOST,
+        port=config.SERVER_PORT,
+        reload=config.DEBUG,
+        log_level=config.LOG_LEVEL.lower(),
+    )
 
 
 if __name__ == "__main__":
