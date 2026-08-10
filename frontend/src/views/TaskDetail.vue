@@ -25,9 +25,12 @@
           <div v-if="task.completed_at"><span class="label">完成时间</span> {{ formatTime(task.completed_at) }}</div>
         </div>
 
-        <div v-if="task.status === 'processing'" class="progress-bar">
-          <div class="progress-fill" :style="{ width: (task.progress * 100) + '%' }"></div>
-        </div>
+        <div v-if="task.status === 'processing'" class="progress-section">
+            <div class="progress-bar">
+              <div class="progress-fill" :style="{ width: (task.progress * 100) + '%' }"></div>
+            </div>
+            <div class="progress-text">{{ progressLabel(task.progress) }}</div>
+          </div>
       </div>
 
       <!-- 错误信息 -->
@@ -49,12 +52,12 @@
           <span class="audio-time">{{ formatSegTime(currentTime) }} / {{ formatSegTime(duration) }}</span>
         </div>
 
-        <h3>转写结果（{{ parsedResult.segments_count || 0 }} 段，{{ parsedResult.duration_seconds?.toFixed(0) || 0 }}秒）</h3>
+        <h3>转写结果（{{ parsedResult.segments_count || segments.length }} 段，{{ parsedResult.duration_seconds?.toFixed(0) || 0 }}秒）</h3>
 
         <!-- 分段时间轴 -->
-        <div v-if="parsedResult.segments?.length" class="segments-list">
+        <div v-if="segments.length" class="segments-list">
           <div
-            v-for="(seg, i) in parsedResult.segments"
+            v-for="(seg, i) in segments"
             :key="i"
             class="segment-item"
             :class="{ active: activeSegment === i }"
@@ -65,7 +68,7 @@
           </div>
         </div>
 
-        <div v-else class="result-text">{{ parsedResult.text_preview }}</div>
+        <div v-else-if="parsedResult.text_preview" class="result-text">{{ parsedResult.text_preview }}</div>
 
         <div v-if="parsedResult.result_path" class="result-path">
           完整文件: {{ parsedResult.result_path }}
@@ -84,10 +87,11 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
-import { getTask } from '../api.js'
+import { getTask, getTaskSegments } from '../api.js'
 
 const route = useRoute()
 const task = ref(null)
+const segments = ref([])
 const loading = ref(true)
 const pollingCount = ref(0)
 let timer = null
@@ -165,12 +169,10 @@ function seekAudio(e) {
 function onTimeUpdate() {
   if (!audio.value) return
   currentTime.value = audio.value.currentTime
-  // 找到当前播放位置对应的分段
-  const segs = parsedResult.value?.segments
-  if (!segs) return
+  if (!segments.value.length) return
   let found = -1
-  for (let i = 0; i < segs.length; i++) {
-    if (currentTime.value >= segs[i].start && currentTime.value < segs[i].end) {
+  for (let i = 0; i < segments.value.length; i++) {
+    if (currentTime.value >= segments.value[i].start && currentTime.value < segments.value[i].end) {
       found = i
       break
     }
@@ -181,6 +183,15 @@ function onTimeUpdate() {
 async function fetchTask() {
   try {
     task.value = await getTask(route.params.id)
+    // 任务完成后加载分段
+    if (task.value.status === 'completed') {
+      try {
+        const segData = await getTaskSegments(route.params.id)
+        segments.value = segData.segments || []
+      } catch {
+        // 分段加载失败，显示纯文本
+      }
+    }
     if (task.value.status === 'pending' || task.value.status === 'processing') {
       pollingCount.value++
     }
@@ -230,6 +241,13 @@ function formatSegTime(seconds) {
   const m = Math.floor(seconds / 60)
   const s = Math.floor(seconds % 60)
   return `${m}:${String(s).padStart(2, '0')}`
+}
+
+function progressLabel(p) {
+  if (p < 0.15) return '加载模型中...'
+  if (p < 0.3) return '转写中...'
+  if (p < 0.95) return '保存结果...'
+  return '即将完成...'
 }
 </script>
 
@@ -367,8 +385,11 @@ function formatSegTime(seconds) {
   margin-right: 6px;
 }
 
-.progress-bar {
+.progress-section {
   margin-top: 12px;
+}
+
+.progress-bar {
   height: 6px;
   background: #e2e8f0;
   border-radius: 3px;
@@ -380,6 +401,12 @@ function formatSegTime(seconds) {
   background: #4f46e5;
   border-radius: 3px;
   transition: width 0.5s;
+}
+
+.progress-text {
+  font-size: 0.8rem;
+  color: #64748b;
+  margin-top: 4px;
 }
 
 .error-card {

@@ -4,8 +4,11 @@
 任务提交：POST /api/tasks
 任务查询：GET /api/tasks/{task_id}
 任务列表：GET /api/tasks
+分段数据：GET /api/tasks/{task_id}/segments
 """
 
+import json
+import os
 from typing import Optional
 
 from fastapi import APIRouter, HTTPException, Query
@@ -51,6 +54,34 @@ async def submit_task(
         raise HTTPException(status_code=400, detail=str(e))
 
     return {"task_id": task_id, "status": "pending"}
+
+
+@router.get("/{task_id}/segments")
+async def get_task_segments(task_id: str):
+    """获取任务的分段数据（从 JSON 文件读取，避免 DB 截断）"""
+    manager = get_task_manager()
+    task = manager.get_task(task_id)
+    if not task:
+        raise HTTPException(status_code=404, detail=f"任务不存在: {task_id}")
+
+    # 从 result_summary 中提取 segments_path
+    result_summary = task.get("result_summary")
+    if not result_summary:
+        raise HTTPException(status_code=404, detail="任务无结果")
+
+    try:
+        summary = json.loads(result_summary)
+        segments_path = summary.get("segments_path")
+    except json.JSONDecodeError:
+        raise HTTPException(status_code=404, detail="结果解析失败")
+
+    if not segments_path or not os.path.exists(segments_path):
+        raise HTTPException(status_code=404, detail="分段文件不存在")
+
+    with open(segments_path, "r", encoding="utf-8") as f:
+        segments = json.load(f)
+
+    return {"task_id": task_id, "segments": segments, "segments_count": len(segments)}
 
 
 @router.get("/{task_id}")

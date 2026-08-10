@@ -213,9 +213,11 @@ class TaskManager:
                 task.progress = 1.0
                 task.completed_at = datetime.now(timezone.utc)
                 if isinstance(result, str):
-                    task.result_summary = result[:500]
+                    task.result_summary = result[:2000]
                 elif isinstance(result, dict):
-                    task.result_summary = json.dumps(result, ensure_ascii=False)[:500]
+                    # 大字段（segments）不存入 DB，只存摘要
+                    summary = {k: v for k, v in result.items() if k != "segments"}
+                    task.result_summary = json.dumps(summary, ensure_ascii=False)[:2000]
                     if "result_path" in result:
                         task.result_path = result["result_path"]
                 db.commit()

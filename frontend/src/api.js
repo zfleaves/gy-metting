@@ -37,6 +37,11 @@ export function getTask(taskId) {
   return request(`/api/tasks/${taskId}`)
 }
 
+// 获取分段数据
+export function getTaskSegments(taskId) {
+  return request(`/api/tasks/${taskId}/segments`)
+}
+
 // 查询任务列表
 export function listTasks({ status, task_type, limit = 20, offset = 0 } = {}) {
   const query = new URLSearchParams()

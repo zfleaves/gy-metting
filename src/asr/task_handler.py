@@ -36,8 +36,10 @@ async def handle_asr_task(task_id: str, params: Dict[str, Any]) -> Dict[str, Any
         params: {"audio_path": "..."}
 
     Returns:
-        {"result_path": "...", "text_preview": "...", "segments": [...], "segments_count": N}
+        {"result_path": "...", "text_preview": "...", "segments_count": N}
     """
+    from src.task.queue import get_task_manager
+
     audio_path = params.get("audio_path")
     if not audio_path:
         raise ValueError("缺少 audio_path 参数")
@@ -45,8 +47,18 @@ async def handle_asr_task(task_id: str, params: Dict[str, Any]) -> Dict[str, Any
     if not os.path.exists(audio_path):
         raise FileNotFoundError(f"音频文件不存在: {audio_path}")
 
+    # 更新进度：加载模型
+    _update_progress(task_id, 0.1)
+
     engine = _get_engine()
+
+    # 更新进度：开始转写
+    _update_progress(task_id, 0.2)
+
     result = engine.transcribe(audio_path)
+
+    # 更新进度：保存结果
+    _update_progress(task_id, 0.9)
 
     # 保存转写结果到文件
     config = get_config()
@@ -77,12 +89,29 @@ async def handle_asr_task(task_id: str, params: Dict[str, Any]) -> Dict[str, Any
         "segments_path": str(json_path),
         "audio_path": audio_path,
         "text_preview": result.text[:500],
-        "segments": segments_data[:50],  # 前 50 段直接返回给前端显示
         "segments_count": len(segments_data),
         "language": result.language,
         "duration_seconds": result.duration_seconds,
         "engine": result.engine,
     }
+
+
+def _update_progress(task_id: str, progress: float) -> None:
+    """更新任务进度到数据库"""
+    try:
+        from src.task.queue import get_task_manager
+        from src.storage.db import SessionLocal
+        from src.storage.models import Task
+        db = SessionLocal()
+        try:
+            task = db.query(Task).filter(Task.id == task_id).first()
+            if task:
+                task.progress = progress
+                db.commit()
+        finally:
+            db.close()
+    except Exception:
+        pass  # 进度更新失败不影响主流程
 
 
 def register_asr_handler() -> None:
