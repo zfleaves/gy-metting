@@ -7,7 +7,7 @@
 
 | 阶段 | 预估工时 | 状态 | 开始 | 完成 |
 |------|---------|------|------|------|
-| [准备阶段](#准备阶段) | — | 🔄 进行中 | 2026-08-10 | — |
+| [准备阶段](#准备阶段) | — | ✅ 完成 | 2026-08-10 | 2026-08-10 |
 | [M1 基础能力搭建](#m1-基础能力搭建) | 3-5 天 | ⬜ 待开始 | — | — |
 | [M2 参考文档接入](#m2-参考文档接入) | 3-5 天 | ⬜ 待开始 | — | — |
 | [M3 AI 纪要生成](#m3-ai-纪要生成) | 3-5 天 | ⬜ 待开始 | — | — |
@@ -22,11 +22,11 @@
 
 > 工程基础搭建，编码开始前完成。
 
-- [ ] 初始化 Python 项目骨架（`pyproject.toml`、`src/`、`main.py`）
-- [ ] 创建主 `requirements.txt`（FastAPI、faster-whisper、SQLAlchemy 等）
-- [ ] 创建 `data/` 目录结构（按 DESIGN.md §7.1）
-- [ ] 完善 `README.md`（项目介绍、快速开始、架构图引用）
-- [ ] 创建 `tests/` 目录占位
+- [x] 初始化 Python 项目骨架（`pyproject.toml`、`src/`、`main.py`）
+- [x] 创建主 `requirements.txt`（FastAPI、faster-whisper、SQLAlchemy 等）
+- [x] 创建 `data/` 目录结构（按 DESIGN.md §7.1）
+- [x] 完善 `README.md`（项目介绍、快速开始、架构图引用）
+- [x] 创建 `tests/` 目录占位
 
 ---
 
