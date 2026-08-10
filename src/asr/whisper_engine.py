@@ -25,6 +25,16 @@ def _to_simplified(text: str) -> str:
         return text
 
 
+def _apply_word_replace(text: str, replace_map: dict) -> str:
+    """应用自定义词替换"""
+    if not replace_map:
+        return text
+    result = text
+    for wrong, correct in replace_map.items():
+        result = result.replace(wrong, correct)
+    return result
+
+
 class WhisperEngine(BaseASREngine):
     """Faster-Whisper 引擎"""
 
@@ -103,11 +113,13 @@ class WhisperEngine(BaseASREngine):
             except Exception as e:
                 raise ASRError(f"Faster-Whisper 转写失败: {e}") from e
 
-            # 收集所有片段并转简体
+            # 收集所有片段并转简体 + 词替换
+            replace_map = config.asr_word_replace_map
             segments = []
             full_text_parts = []
             for seg in segments_iter:
                 text = _to_simplified(seg.text.strip())
+                text = _apply_word_replace(text, replace_map)
                 segments.append(ASRSegment(
                     start=seg.start,
                     end=seg.end,

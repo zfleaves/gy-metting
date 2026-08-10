@@ -60,6 +60,7 @@ class Settings(BaseSettings):
     WHISPER_MODEL_SIZE: str = "small"
     WHISPER_COMPUTE_TYPE: str = "int8"
     WHISPER_DEVICE: str = "auto"
+    ASR_WORD_REPLACE: str = ""  # 自定义词替换: 错词=正确词,错词2=正确词2
     DASHSCOPE_API_KEY: Optional[str] = None
 
     # ============================================================
@@ -148,6 +149,19 @@ class Settings(BaseSettings):
     def yuque_enabled(self) -> bool:
         """语雀拉取是否已配置"""
         return bool(self.YUQUE_API_TOKEN and self.YUQUE_API_TOKEN.strip())
+
+    @property
+    def asr_word_replace_map(self) -> dict:
+        """解析自定义词替换映射"""
+        if not self.ASR_WORD_REPLACE.strip():
+            return {}
+        result = {}
+        for pair in self.ASR_WORD_REPLACE.split(","):
+            pair = pair.strip()
+            if "=" in pair:
+                k, v = pair.split("=", 1)
+                result[k.strip()] = v.strip()
+        return result
 
     def resolve_path(self, relative_path: str) -> Path:
         """将相对路径解析为绝对路径（相对于项目根目录）"""

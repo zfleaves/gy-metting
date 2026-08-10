@@ -169,6 +169,7 @@ class TaskManager:
                 return
 
             task.status = TaskStatus.PROCESSING
+            task.progress = 0.05
             task.started_at = datetime.now(timezone.utc)
             db.commit()
 
