@@ -1,0 +1,1033 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI 智能会议纪要轻量化中台设计方案</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;600;700;900&display=swap');
+
+  :root {
+    --primary: #1a56db;
+    --primary-light: #e8effd;
+    --primary-dark: #0f3a8a;
+    --accent: #06b6d4;
+    --success: #10b981;
+    --warning: #f59e0b;
+    --danger: #ef4444;
+    --gray-50: #f9fafb;
+    --gray-100: #f3f4f6;
+    --gray-200: #e5e7eb;
+    --gray-300: #d1d5db;
+    --gray-400: #9ca3af;
+    --gray-500: #6b7280;
+    --gray-600: #4b5563;
+    --gray-700: #374151;
+    --gray-800: #1f2937;
+    --gray-900: #111827;
+    --radius: 12px;
+    --shadow: 0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.06);
+    --shadow-lg: 0 10px 25px rgba(0,0,0,0.1), 0 4px 10px rgba(0,0,0,0.06);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Noto Sans SC', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    color: var(--gray-800);
+    background: var(--gray-50);
+    line-height: 1.8;
+    font-size: 15px;
+  }
+
+  /* ========== COVER PAGE ========== */
+  .cover {
+    position: relative;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    background: linear-gradient(135deg, #0f172a 0%, #1e3a5f 50%, #0f3a8a 100%);
+    color: #fff;
+    padding: 60px 40px;
+    overflow: hidden;
+  }
+  .cover::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background:
+      radial-gradient(ellipse 800px 600px at 20% 30%, rgba(6,182,212,0.15) 0%, transparent 70%),
+      radial-gradient(ellipse 600px 400px at 80% 70%, rgba(59,130,246,0.12) 0%, transparent 70%),
+      radial-gradient(ellipse 400px 400px at 50% 50%, rgba(255,255,255,0.02) 0%, transparent 60%);
+    pointer-events: none;
+  }
+  .cover .badge {
+    display: inline-block;
+    border: 1px solid rgba(255,255,255,0.3);
+    border-radius: 20px;
+    padding: 6px 20px;
+    font-size: 13px;
+    letter-spacing: 1px;
+    color: rgba(255,255,255,0.8);
+    margin-bottom: 32px;
+    backdrop-filter: blur(4px);
+  }
+  .cover h1 {
+    font-size: clamp(32px, 5vw, 52px);
+    font-weight: 900;
+    line-height: 1.25;
+    margin-bottom: 16px;
+    background: linear-gradient(135deg, #fff 60%, #93c5fd);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .cover .subtitle {
+    font-size: clamp(16px, 2vw, 22px);
+    color: rgba(255,255,255,0.7);
+    font-weight: 300;
+    margin-bottom: 48px;
+    max-width: 600px;
+  }
+  .cover .meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 24px;
+    justify-content: center;
+    font-size: 14px;
+    color: rgba(255,255,255,0.6);
+  }
+  .cover .meta span {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .cover .meta .label { color: rgba(255,255,255,0.4); }
+  .cover .divider-line {
+    width: 60px;
+    height: 3px;
+    background: linear-gradient(90deg, var(--accent), var(--primary));
+    border-radius: 2px;
+    margin: 24px 0;
+  }
+  .cover-arrow {
+    position: absolute;
+    bottom: 40px;
+    left: 50%;
+    transform: translateX(-50%);
+    animation: bounce 2s infinite;
+    color: rgba(255,255,255,0.4);
+    font-size: 24px;
+  }
+  @keyframes bounce {
+    0%, 100% { transform: translateX(-50%) translateY(0); }
+    50% { transform: translateX(-50%) translateY(8px); }
+  }
+
+  /* ========== MAIN CONTENT ========== */
+  .container {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 0 24px;
+  }
+
+  /* TOC */
+  .toc-section {
+    background: #fff;
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    margin: 40px 0;
+    padding: 40px 48px;
+  }
+  .toc-section h2 {
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--gray-900);
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .toc-section h2::before {
+    content: '📋';
+  }
+  .toc-list {
+    list-style: none;
+    display: grid;
+    gap: 6px;
+  }
+  .toc-list li { counter-increment: toc; }
+  .toc-list a {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 12px;
+    border-radius: 8px;
+    color: var(--gray-600);
+    text-decoration: none;
+    font-size: 14px;
+    transition: all 0.2s;
+  }
+  .toc-list a:hover {
+    background: var(--gray-100);
+    color: var(--primary);
+  }
+  .toc-list a .num {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    border-radius: 6px;
+    background: var(--primary-light);
+    color: var(--primary);
+    font-size: 12px;
+    font-weight: 600;
+    flex-shrink: 0;
+  }
+  .toc-list a .dot {
+    width: 4px; height: 4px;
+    border-radius: 50%;
+    background: var(--gray-300);
+    flex-shrink: 0;
+  }
+
+  /* Sections */
+  section {
+    background: #fff;
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    margin-bottom: 24px;
+    padding: 40px 48px;
+    scroll-margin-top: 24px;
+  }
+  section h2 {
+    font-size: 24px;
+    font-weight: 700;
+    color: var(--gray-900);
+    margin-bottom: 20px;
+    padding-bottom: 12px;
+    border-bottom: 2px solid var(--gray-100);
+  }
+  section h3 {
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--gray-800);
+    margin-top: 28px;
+    margin-bottom: 12px;
+  }
+  section h4 {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--gray-700);
+    margin-top: 20px;
+    margin-bottom: 8px;
+  }
+  section p {
+    margin-bottom: 12px;
+    color: var(--gray-600);
+  }
+  section ul, section ol {
+    margin: 8px 0 16px 24px;
+    color: var(--gray-600);
+  }
+  section li {
+    margin-bottom: 4px;
+  }
+
+  /* Code blocks / ASCII art */
+  pre {
+    background: #0f172a;
+    color: #e2e8f0;
+    border-radius: 10px;
+    padding: 20px 24px;
+    overflow-x: auto;
+    font-size: 13px;
+    line-height: 1.6;
+    font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+    margin: 16px 0;
+  }
+  code {
+    background: var(--gray-100);
+    color: var(--primary-dark);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 0.9em;
+    font-family: 'JetBrains Mono', 'Consolas', monospace;
+  }
+  pre code {
+    background: none;
+    color: inherit;
+    padding: 0;
+    border-radius: 0;
+  }
+
+  /* Tables */
+  .table-wrap {
+    overflow-x: auto;
+    margin: 16px 0;
+    border-radius: 10px;
+    border: 1px solid var(--gray-200);
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+  }
+  thead {
+    background: var(--gray-50);
+  }
+  th {
+    text-align: left;
+    padding: 12px 16px;
+    font-weight: 600;
+    color: var(--gray-700);
+    border-bottom: 2px solid var(--gray-200);
+    white-space: nowrap;
+  }
+  td {
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--gray-100);
+    color: var(--gray-600);
+    vertical-align: top;
+  }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: var(--gray-50); }
+
+  /* Callouts */
+  .callout {
+    border-radius: 10px;
+    padding: 16px 20px;
+    margin: 16px 0;
+    border-left: 4px solid;
+    font-size: 14px;
+  }
+  .callout-info {
+    background: #eff6ff;
+    border-color: var(--primary);
+    color: #1e40af;
+  }
+  .callout-warning {
+    background: #fffbeb;
+    border-color: var(--warning);
+    color: #92400e;
+  }
+  .callout-danger {
+    background: #fef2f2;
+    border-color: var(--danger);
+    color: #991b1b;
+  }
+  .callout-success {
+    background: #ecfdf5;
+    border-color: var(--success);
+    color: #065f46;
+  }
+  .callout strong { display: block; margin-bottom: 4px; }
+
+  /* Tags / Badges */
+  .tag {
+    display: inline-block;
+    padding: 2px 10px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 500;
+  }
+  .tag-blue { background: #dbeafe; color: #1d4ed8; }
+  .tag-green { background: #d1fae5; color: #065f46; }
+  .tag-amber { background: #fef3c7; color: #92400e; }
+  .tag-red { background: #fee2e2; color: #991b1b; }
+  .tag-purple { background: #ede9fe; color: #5b21b6; }
+
+  /* Priority badges for milestones */
+  .milestone-list {
+    list-style: none;
+    margin: 16px 0 !important;
+  }
+  .milestone-list li {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 12px 16px;
+    background: var(--gray-50);
+    border-radius: 8px;
+    margin-bottom: 8px;
+  }
+  .milestone-list li .m-num {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    background: var(--primary);
+    color: #fff;
+    font-size: 13px;
+    font-weight: 700;
+    flex-shrink: 0;
+  }
+  .milestone-list li .m-body { flex: 1; }
+  .milestone-list li .m-body strong { display: block; }
+  .milestone-list li .m-body .days {
+    display: inline-block;
+    margin-top: 4px;
+    font-size: 13px;
+    color: var(--gray-500);
+  }
+
+  /* Evolve checklist */
+  .evolve-list { list-style: none; margin: 16px 0 !important; }
+  .evolve-list li {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--gray-100);
+  }
+  .evolve-list li:last-child { border-bottom: none; }
+  .evolve-list li .box {
+    width: 18px; height: 18px;
+    border: 2px solid var(--gray-300);
+    border-radius: 4px;
+    flex-shrink: 0;
+  }
+  .evolve-list li .prio {
+    font-size: 12px;
+    padding: 1px 8px;
+    border-radius: 10px;
+    margin-left: auto;
+    flex-shrink: 0;
+  }
+
+  /* Data flow diagram */
+  .flow {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    padding: 24px;
+    background: var(--gray-50);
+    border-radius: 10px;
+    margin: 16px 0;
+  }
+  .flow .node {
+    background: #fff;
+    border: 1px solid var(--gray-200);
+    border-radius: 8px;
+    padding: 10px 20px;
+    font-size: 13px;
+    color: var(--gray-700);
+    text-align: center;
+    min-width: 180px;
+    box-shadow: var(--shadow);
+  }
+  .flow .node.highlight {
+    background: var(--primary);
+    color: #fff;
+    border-color: var(--primary);
+  }
+  .flow .arrow {
+    color: var(--gray-400);
+    font-size: 14px;
+  }
+  .flow .branch {
+    display: flex;
+    gap: 24px;
+    align-items: center;
+  }
+
+  /* Summary box */
+  .summary-box {
+    background: linear-gradient(135deg, #0f172a, #1e3a5f);
+    color: #fff;
+    border-radius: var(--radius);
+    padding: 32px 36px;
+    margin: 16px 0;
+  }
+  .summary-box p { color: rgba(255,255,255,0.8) !important; }
+  .summary-box strong { color: #fff; }
+
+  /* Section number */
+  .section-num {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    background: var(--primary);
+    color: #fff;
+    font-size: 14px;
+    font-weight: 700;
+    margin-right: 10px;
+    flex-shrink: 0;
+  }
+
+  /* Print styles */
+  @media print {
+    body { background: #fff; font-size: 13px; }
+    .cover { min-height: 100vh; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    section { box-shadow: none; border: 1px solid #eee; break-inside: avoid; page-break-inside: avoid; }
+    .toc-section { box-shadow: none; border: 1px solid #eee; }
+    pre { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .callout { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .summary-box { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .cover-arrow { display: none; }
+    .table-wrap { break-inside: avoid; }
+    @page { margin: 1.5cm; }
+  }
+
+  @media (max-width: 640px) {
+    section, .toc-section { padding: 24px 20px; }
+    .cover { padding: 40px 20px; }
+    pre { font-size: 11px; padding: 14px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ========== COVER ========== -->
+<div class="cover">
+  <div class="badge">DESIGN DOCUMENT · V1.1</div>
+  <h1>AI 智能会议纪要<br>轻量化中台设计方案</h1>
+  <div class="divider-line"></div>
+  <p class="subtitle">部门级轻量化 AI 会议纪要中台 · 解决评审会议纪要痛点<br>模型无关 · 语雀基线对照 · 内网数据闭环</p>
+  <div class="meta">
+    <span><span class="label">文档版本</span> V1.1</span>
+    <span><span class="label">编制日期</span> 2026-08-06</span>
+    <span><span class="label">适用范围</span> 部门内部需求评审、技术评审、迭代周会</span>
+    <span><span class="label">方案定位</span> 单机轻量化原型 → 企业级正式中台</span>
+  </div>
+  <div class="cover-arrow">↓</div>
+</div>
+
+<!-- ========== CONTENT ========== -->
+<div class="container">
+
+  <!-- TOC -->
+  <div class="toc-section">
+    <h2>目录</h2>
+    <ol class="toc-list" style="counter-reset: toc 0;">
+      <li><a href="#s1"><span class="num">1</span>方案概述</a></li>
+      <li><a href="#s2"><span class="num">2</span>整体架构设计</a></li>
+      <li><a href="#s3"><span class="num">3</span>核心功能详细设计</a></li>
+      <li style="margin-top: 4px; padding-left: 36px;"><a href="#s4"><span class="dot"></span>完整业务处理流程</a></li>
+      <li style="padding-left: 36px;"><a href="#s5"><span class="dot"></span>内部模块拆解</a></li>
+      <li style="padding-left: 36px;"><a href="#s6"><span class="dot"></span>质量与防幻觉设计</a></li>
+      <li style="padding-left: 36px;"><a href="#s7"><span class="dot"></span>部署方案</a></li>
+      <li style="padding-left: 36px;"><a href="#s8"><span class="dot"></span>实施周期与里程碑</a></li>
+      <li style="padding-left: 36px;"><a href="#s9"><span class="dot"></span>风险点与应对措施</a></li>
+      <li style="padding-left: 36px;"><a href="#s10"><span class="dot"></span>后续演进规划</a></li>
+      <li style="padding-left: 36px;"><a href="#s11"><span class="dot"></span>方案总结</a></li>
+    </ol>
+  </div>
+
+  <!-- ============ 1 ============ -->
+  <section id="s1">
+    <h2><span class="section-num">1</span> 方案概述</h2>
+
+    <h3>1.1 建设目标</h3>
+    <p>搭建部门级轻量化 AI 会议纪要中台，解决评审会议纪要编写耗时、决策遗漏、待办责任人不清晰、口头讨论与原始需求脱节等痛点。</p>
+    <div class="callout callout-info">
+      <strong>🎯 核心目标</strong>
+      <ul style="margin: 4px 0 0 20px;">
+        <li>不依赖腾讯会议、钉钉会议企业版，支持录音音频上传完成会议纪要生成</li>
+        <li>集成语雀，输入文档链接自动拉取 PRD 作为需求基线，实现评审变更对照</li>
+        <li>支持上传本地参考文档（docx/pdf/txt/md），与语雀文档共同构成需求基线</li>
+        <li>支持业务背景录入、自定义系统提示词，灵活适配不同大模型</li>
+        <li>输出可读 Markdown + 机器可解析结构化 JSON</li>
+        <li>支持钉钉机器人消息推送</li>
+        <li>全量数据本地归档，可回溯审计</li>
+        <li>中台化设计，支持后续对接其他业务系统</li>
+      </ul>
+    </div>
+
+    <h3>1.2 适用业务场景</h3>
+    <ul>
+      <li><strong>产品需求评审会</strong>（核心场景，PRD 对照）</li>
+      <li><strong>技术方案评审会</strong></li>
+      <li><strong>项目迭代周会、同步例会</strong></li>
+      <li>各类需要对照参考文档开展的内部评审会议</li>
+    </ul>
+
+    <h3>1.3 建设原则</h3>
+    <table>
+      <thead><tr><th>原则</th><th>说明</th></tr></thead>
+      <tbody>
+        <tr><td><span class="tag tag-blue">数据内网闭环</span></td><td>录音、原始转写文本不出内网；语雀拉取、钉钉推送仅传输非敏感业务数据</td></tr>
+        <tr><td><span class="tag tag-green">模型无关</span></td><td>统一 LLM 适配器接口，对接 DeepSeek、通义千问、GLM 等公有或私有化大模型</td></tr>
+        <tr><td><span class="tag tag-amber">最小可用优先</span></td><td>先实现核心闭环（API + CLI），再叠加增强能力（Web 界面）</td></tr>
+        <tr><td><span class="tag tag-purple">可回溯可审计</span></td><td>每一次 AI 生成，保存当时的背景、提示词、参考文档快照</td></tr>
+        <tr><td><span class="tag tag-blue">向后兼容扩展</span></td><td>架构预留接口，未来可对接会议开放平台、OA、项目管理工具</td></tr>
+      </tbody>
+    </table>
+
+    <h3>1.4 数据安全分级</h3>
+    <table>
+      <thead><tr><th>安全等级</th><th>数据类型</th><th>处理方式</th></tr></thead>
+      <tbody>
+        <tr><td><span class="tag tag-red">L1 敏感</span></td><td>音频文件、原始 ASR 转写文本</td><td>严格不出内网；仅存储于本地</td></tr>
+        <tr><td><span class="tag tag-amber">L2 业务</span></td><td>会议纪要结果、结构化 JSON</td><td>可发送至钉钉等外部渠道，仅传输摘要级内容</td></tr>
+        <tr><td><span class="tag tag-green">L3 公开</span></td><td>语雀文档内容</td><td>可正常拉取，快照本地存储</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- ============ 2 ============ -->
+  <section id="s2">
+    <h2><span class="section-num">2</span> 整体架构设计</h2>
+
+    <h3>2.1 四层分层架构</h3>
+    <pre>
+┌──────────────────────────────────────────────────────────────────┐
+│                     接入层 (Access Layer)                          │
+│  ┌──────────────────────────┐  ┌──────────────────────────────┐  │
+│  │  CLI 命令行工具            │  │  HTTP 标准化 API             │  │
+│  │  (开发/初期使用)           │  │  (程序调用/系统对接)          │  │
+│  └──────────────────────────┘  └──────────────────────────────┘  │
+├──────────────────────────────────────────────────────────────────┤
+│                   任务调度层 (Task Scheduler)                       │
+│  ┌──────────────────────────────────────────────────────────┐   │
+│  │  异步任务队列（内存队列 + 数据库持久化）                     │   │
+│  │  任务提交 → 返回 task_id → 轮询/回调获取结果               │   │
+│  └──────────────────────────────────────────────────────────┘   │
+├──────────────────────────────────────────────────────────────────┤
+│                   中台核心能力层 (Core Layer)                       │
+│  ┌────────────┐ ┌────────────┐ ┌──────────────────────────────┐  │
+│  │ 本地离线    │ │ 参考文档     │ │     AI 纪要推理引擎           │  │
+│  │ ASR 模块   │ │ 适配器      │ │  (LLM 适配器 + 模板管理 +     │  │
+│  │            │ │(语雀/本地)  │ │   上下文组装)                 │  │
+│  └────────────┘ └────────────┘ └──────────────────────────────┘  │
+│  ┌──────────────────────────────────────────────────────────┐   │
+│  │                上下文预处理模块                            │   │
+│  │          (超长截断、清洗、防上下文超限)                     │   │
+│  └──────────────────────────────────────────────────────────┘   │
+├──────────────────────────────────────────────────────────────────┤
+│                    输出适配层 (Output Layer)                       │
+│  ┌──────────────────┐ ┌──────────────┐ ┌──────────────────────┐  │
+│  │ 钉钉消息适配器     │ │ 结果格式化    │ │ 存储写入适配器       │  │
+│  │ (Markdown 推送)   │ │ (MD + JSON)  │ │ (数据库持久化)       │  │
+│  └──────────────────┘ └──────────────┘ └──────────────────────┘  │
+├──────────────────────────────────────────────────────────────────┤
+│                      存储层 (Storage Layer)                       │
+│  ┌──────────────────────────────────────────────────────────┐   │
+│  │  SQLite (WAL 模式) → MySQL (平滑迁移)                     │   │
+│  │  持久化：会议主题、业务背景、提示词、参考文档快照、            │   │
+│  │  原始转写、Markdown 纪要、结构化 JSON、推送信息、时间        │   │
+│  └──────────────────────────────────────────────────────────┘   │
+└──────────────────────────────────────────────────────────────────┘</pre>
+
+    <h3>2.2 数据流总览</h3>
+    <div class="flow">
+      <div class="node highlight">用户输入</div>
+      <div class="arrow">↓</div>
+      <div class="node">任务提交 → 返回 task_id</div>
+      <div class="arrow">↓</div>
+      <div class="node">文件处理 &amp; 参考文档拉取 → 快照生成</div>
+      <div class="arrow">↓</div>
+      <div class="node">LLM 适配器封装请求（统一接口）</div>
+      <div class="arrow">↓</div>
+      <div class="node">上下文组装：模板 + 背景 + 文档 + 转写</div>
+      <div class="arrow">↓</div>
+      <div class="node">请求大模型 → Markdown + JSON 纪要</div>
+      <div class="arrow">↓</div>
+      <div class="branch">
+        <div class="node">钉钉推送（可选）</div>
+        <div class="arrow">→</div>
+        <div class="node">全量数据入库持久化</div>
+      </div>
+      <div class="arrow">↓</div>
+      <div class="node highlight">用户通过 task_id 轮询获取结果</div>
+    </div>
+  </section>
+
+  <!-- ============ 3 ============ -->
+  <section id="s3">
+    <h2><span class="section-num">3</span> 核心功能详细设计</h2>
+
+    <h3>3.1 会议原始材料接入能力</h3>
+    <p>支持三类输入源，可组合使用：</p>
+    <ul>
+      <li><strong>音频文件上传</strong>：mp3/wav/m4a，本地离线 ASR 转写</li>
+      <li><strong>ASR 引擎双模可选</strong>：主选 Faster-Whisper（本地离线），备选 Qwen3-ASR-Flash（云端 API）</li>
+      <li><strong>文本资料上传</strong>：SRT 字幕文件直接解析，跳过 ASR 环节</li>
+      <li><strong>参考文档上传</strong>：docx/pdf/txt/md，作为评审需求基线</li>
+    </ul>
+
+    <h4>ASR 引擎方案对比</h4>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>对比维度</th><th>Faster-Whisper（主选）</th><th>Qwen3-ASR-Flash（备选）</th></tr></thead>
+        <tbody>
+          <tr><td>部署方式</td><td>本地离线部署</td><td>云端 API 调用</td></tr>
+          <tr><td>硬件要求</td><td>CPU 可运行（INT8），有 GPU 更佳</td><td>无需本地 GPU</td></tr>
+          <tr><td>数据安全</td><td><span class="tag tag-green">✅ 音频不出内网</span></td><td><span class="tag tag-amber">⚠️ 音频需上传云端</span></td></tr>
+          <tr><td>成本</td><td>免费开源</td><td>按 API 调用量计费</td></tr>
+          <tr><td>中文准确率</td><td>良好</td><td><span class="tag tag-green">优秀</span></td></tr>
+          <tr><td>适用场景</td><td>普通会议、敏感会议（内网闭环）</td><td>对准确率要求高的会议</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="callout callout-warning">
+      <strong>⚠️ 选择建议</strong>
+      <ul style="margin: 4px 0 0 20px;">
+        <li>默认使用 Faster-Whisper，满足数据内网闭环要求，零成本</li>
+        <li>当 Faster-Whisper 识别准确率不足时，可切换至 Qwen3-ASR-Flash</li>
+        <li>敏感会议强制使用 Faster-Whisper，确保音频不出内网</li>
+      </ul>
+    </div>
+
+    <h3>3.2 参考文档接入与快照管理</h3>
+
+    <h4>3.2.1 语雀 PRD 文档拉取</h4>
+    <ul>
+      <li>用户输入语雀文档链接，后台使用只读 Token 调用语雀 OpenAPI</li>
+      <li>HTML 转 Markdown（html2text / markdownify），保留表格、代码块</li>
+      <li>图片下载转存至本地，确保历史回看不失效</li>
+      <li>快照存入数据库 + 本地文件系统，语雀文档修改不影响历史回看</li>
+      <li>Token 失效、无权限等异常返回明确错误提示</li>
+    </ul>
+    <div class="callout callout-danger">
+      <strong>🔒 安全约束</strong>
+      语雀 Token 保存在中台后端配置（建议加密存储，使用环境变量或加密配置文件），前端不传输 Token。推荐使用语雀应用级 Token（限定只读权限和特定知识库），定期轮换并监控失效情况。
+    </div>
+
+    <h4>3.2.2 本地参考文档上传</h4>
+    <ul>
+      <li>支持 docx / pdf / txt / md 格式</li>
+      <li>后端自动解析提取文本，生成统一参考文档快照</li>
+      <li><strong>PDF 限制：</strong>仅支持文本型 PDF（PyMuPDF 提取），扫描件提示用户改用原始文档</li>
+      <li>超长文档做截断提示，建议只使用相关章节</li>
+      <li>与语雀文档可组合使用，均作为参考基线</li>
+    </ul>
+
+    <h3>3.3 AI 纪要生成引擎</h3>
+    <p><strong>三层 AI 控制逻辑：</strong></p>
+    <ol>
+      <li><strong>内置系统模板库</strong>：需求评审、技术评审、周会例会模板</li>
+      <li><strong>业务背景输入</strong>：项目版本、参会人员、历史遗留问题等</li>
+      <li><strong>自定义提示词</strong>：高级用户完全覆盖系统模板，适配不同大模型</li>
+    </ol>
+
+    <h4>LLM 适配器（模型无关架构）</h4>
+    <ul>
+      <li><code>LLMAdapter</code> 抽象层：定义 <code>chat(messages, temperature, max_tokens)</code> 统一接口</li>
+      <li>OpenAI 兼容模式（优先实现）：通过配置 <code>base_url</code> 和 <code>api_key</code> 即可切换模型</li>
+      <li>原生 SDK 扩展（后续）：DashScope、Zhipu 等</li>
+    </ul>
+
+    <h4>输入组装规则</h4>
+    <pre>
+【业务背景】
+{用户填写背景}
+
+【原始需求参考文档】
+{语雀快照 / 上传文档快照 / 手动粘贴参考文本}
+
+【会议转写文本】
+{ASR/SRT 解析得到的会议对话}</pre>
+
+    <h4>输出策略（二阶段）</h4>
+    <div class="callout callout-info">
+      <strong>📤 二阶段输出策略</strong>
+      <p style="margin-top: 4px;"><strong>一阶段：</strong>模型输出 Markdown 格式纪要（适合阅读）</p>
+      <p><strong>二阶段：</strong>基于 Markdown 结果，调用结构化输出生成 JSON（确保格式合法）</p>
+      <p style="margin-bottom: 0;">若模型不支持结构化输出，则采用正则提取 + json5 宽松解析 + LLM 自修复三级降级</p>
+    </div>
+
+    <div class="callout callout-danger">
+      <strong>🚫 内置防幻觉约束</strong>
+      所有决策、变更、待办必须来源于会议转写文本；参考文档仅作为基线，未在会议讨论的条目，禁止输出评审结论。
+    </div>
+
+    <h3>3.4 多渠道消息通知适配</h3>
+    <p>当前实现钉钉机器人推送，输入 Webhook 地址与安全密钥（选填）。支持 Markdown 语法适配。</p>
+    <div class="callout callout-warning">
+      <strong>⚠️ 限制</strong>
+      <ul style="margin: 4px 0 0 20px;">
+        <li>原型阶段仅实现消息推送，暂不实现自动创建钉钉待办任务</li>
+        <li>钉钉推送需要部署机器有公网访问能力，纯内网环境无法使用</li>
+        <li>推送内容仅包含纪要摘要，不包含原始音频和完整转写文本</li>
+      </ul>
+    </div>
+
+    <h3>3.5 数据归档与历史资产管理</h3>
+    <p>数据库保存完整会议记录：会议主题/类型/背景、当时生效的提示词、语雀 PRD 快照/上传文档快照、原始转写文本、Markdown 纪要、结构化 JSON、推送信息、创建时间。</p>
+
+    <h3>3.6 异步任务队列</h3>
+    <table>
+      <thead><tr><th>特性</th><th>设计</th></tr></thead>
+      <tbody>
+        <tr><td>任务提交</td><td>立即返回 <code>task_id</code>，任务进入后台队列</td></tr>
+        <tr><td>任务状态</td><td><code>pending → processing → completed / failed</code>，持久化到数据库</td></tr>
+        <tr><td>结果获取</td><td>客户端轮询 <code>GET /api/v1/tasks/{task_id}</code>，后续可扩展 WebSocket</td></tr>
+        <tr><td>队列实现</td><td>原型阶段使用内存队列 + 数据库状态表</td></tr>
+        <tr><td>并发控制</td><td>单机模式下限制同时处理 1 个任务</td></tr>
+        <tr><td>超时处理</td><td>单个任务超过 30 分钟标记为超时失败</td></tr>
+      </tbody>
+    </table>
+    <div class="callout callout-warning">
+      <strong>⏱️ 短会议阈值</strong>
+      音频时长 ≤ 30 分钟可同步处理（仍建议走异步）；超过 30 分钟必须异步。
+    </div>
+
+    <h3>3.7 标准化对外 API 能力</h3>
+    <p>对外提供 HTTP 接口，入参包括：会议主题、会议类型、业务背景、自定义系统提示词、音频/SRT 文件、参考文档、钉钉 Webhook 及密钥。返回 Markdown 文本、结构化 JSON、任务编号。</p>
+  </section>
+
+  <!-- ============ 4 ============ -->
+  <section id="s4">
+    <h2>4 完整业务处理流程</h2>
+    <ol>
+      <li>用户 Web 端录入：会议主题、业务背景，选择会议模板或填写自定义提示词</li>
+      <li>选择材料来源：上传音频 / 上传 SRT 字幕 / 上传参考文档 / 填写语雀文档链接</li>
+      <li>中台处理原始材料：音频 → ASR 转写；SRT → 解析；语雀链接 → 拉取 PRD 快照；本地文档 → 解析提取文本</li>
+      <li>中台组装完整 Prompt 上下文，调用大模型服务</li>
+      <li>得到 Markdown + JSON 双格式纪要结果</li>
+      <li>如果配置了钉钉 Webhook，则执行消息推送</li>
+      <li>全部元数据与结果写入数据库归档</li>
+      <li>用户可在页面预览结果，查看历史会议记录</li>
+    </ol>
+  </section>
+
+  <!-- ============ 5 ============ -->
+  <section id="s5">
+    <h2>5 内部模块拆解</h2>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>模块</th><th>职责</th></tr></thead>
+        <tbody>
+          <tr><td><span class="tag tag-blue">参考文档适配器</span></td><td>语雀 OpenAPI 调用（HTML→Markdown）、本地文档解析（docx/pdf/txt/md，含 PDF 扫描件检测）、文档快照存储</td></tr>
+          <tr><td><span class="tag tag-green">本地离线 ASR</span></td><td>Faster-Whisper 音频转写（主选），Qwen3-ASR-Flash 云端 ASR（备选），双模切换</td></tr>
+          <tr><td><span class="tag tag-purple">LLM 适配器</span></td><td>统一大模型调用接口，支持 OpenAI 兼容模式切换</td></tr>
+          <tr><td><span class="tag tag-amber">AI 纪要推理引擎</span></td><td>模板管理、上下文组装、二阶段输出策略（Markdown + JSON）</td></tr>
+          <tr><td><span class="tag tag-blue">异步任务队列</span></td><td>任务提交与状态管理、轮询/回调结果获取、并发控制</td></tr>
+          <tr><td><span class="tag tag-green">钉钉消息推送</span></td><td>钉钉 Webhook Markdown 消息推送（需公网访问）</td></tr>
+          <tr><td><span class="tag tag-purple">Web 可视化 UI</span></td><td>表单录入、文件上传、结果预览、历史查看</td></tr>
+          <tr><td><span class="tag tag-amber">HTTP API 网关</span></td><td>标准化对外接口、健康检查、任务状态查询</td></tr>
+          <tr><td><span class="tag tag-red">数据持久化存储</span></td><td>数据库操作（SQLite WAL）、文件存储管理、归档与全文检索</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ============ 6 ============ -->
+  <section id="s6">
+    <h2>6 质量与防幻觉设计</h2>
+
+    <h3>6.1 AI 幻觉约束策略</h3>
+    <ol>
+      <li>全部决策、变更、待办、风险，必须来自会议转写文本</li>
+      <li>PRD 参考文档仅作为业务基线，文档有但会上未讨论的内容，严禁编造评审结论</li>
+      <li>会议口头讨论优先级高于 PRD 文档，发生冲突时以会议为准并标注变更</li>
+      <li>识别不到责任人、时间，统一标记【未指定责任人】【时间待确认】，禁止 AI 自行编造</li>
+      <li>过滤闲聊、跑题内容，只保留有效业务信息</li>
+    </ol>
+
+    <h3>6.2 上下文超限防护策略</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>超限程度</th><th>处理策略</th></tr></thead>
+        <tbody>
+          <tr><td><span class="tag tag-green">轻度超限（&lt;10%）</span></td><td>按比例均匀压缩会议转写文本（保留关键时间戳段落）</td></tr>
+          <tr><td><span class="tag tag-amber">中度超限（10-50%）</span></td><td>完整保留会议转写，截断 PRD 参考文档（保留首尾章节 + 关键标题）</td></tr>
+          <tr><td><span class="tag tag-red">严重超限（&gt;50%）</span></td><td>返回错误提示，建议用户缩短输入内容</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>不同大模型上下文窗口不同（DeepSeek 128K, GLM 128K, 通义千问 100K+），截断策略随模型配置动态调整。前端显示当前上下文占用情况。</p>
+  </section>
+
+  <!-- ============ 7 ============ -->
+  <section id="s7">
+    <h2>7 部署方案</h2>
+
+    <h3>7.1 部署形态</h3>
+    <p>单机轻量化部署，运行在内网机器，不需要 K8s、微服务集群。</p>
+    <ul>
+      <li><strong>原型阶段：</strong>开发人员笔记本直接运行</li>
+      <li><strong>部门试用阶段：</strong>内网单机服务器部署</li>
+      <li><strong>后期平滑升级：</strong>SQLite 迁移 MySQL，增加异步任务队列，改造为正式中台</li>
+    </ul>
+
+    <h4>服务健康检查</h4>
+    <ul>
+      <li>提供 <code>/health</code> 端点，返回服务状态（数据库连接、ASR 模型加载状态、磁盘空间）</li>
+      <li>日志记录采用结构化格式（JSON），包含请求 ID、操作类型、耗时等关键字段</li>
+    </ul>
+
+    <h4>文件存储目录结构</h4>
+    <pre>
+data/
+  uploads/          ← 上传的原始文件
+    audio/          ← 音频文件（处理后定期清理）
+    docs/           ← 参考文档
+  snapshots/        ← 快照文件
+    yuque/          ← 语雀文档快照（含图片资源）
+    local/          ← 本地文档快照
+  outputs/          ← 生成结果
+    markdown/
+    json/
+  temp/             ← 临时文件（定期清理）</pre>
+
+    <h3>7.2 软硬件环境要求</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>项目</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr><td>软件环境</td><td>Python 3.10+；Faster-Whisper 依赖 PyAV（自带 FFmpeg 库）</td></tr>
+          <tr><td>硬件（CPU 模式）</td><td>推荐 INT8 量化（compute_type="int8"），建议使用 small 模型</td></tr>
+          <tr><td>硬件（N 卡 GPU）</td><td>大幅提升 Faster-Whisper 转写速度，支持 FP16 推理</td></tr>
+          <tr><td>依赖项</td><td>大模型 API Key；语雀只读 Token（可选）；Python 文档解析库</td></tr>
+          <tr><td>文件上传安全</td><td>音频 ≤ 200MB，文档 ≤ 20MB；MIME + magic bytes 双重校验；随机文件名</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ============ 8 ============ -->
+  <section id="s8">
+    <h2>8 实施周期与里程碑</h2>
+    <ul class="milestone-list">
+      <li>
+        <span class="m-num">M1</span>
+        <div class="m-body">
+          <strong>基础能力搭建</strong>
+          项目初始化、ASR 模块集成（Faster-Whisper）、CLI 测试脚本、异步任务队列框架
+          <span class="days">📅 3-5 天</span>
+        </div>
+      </li>
+      <li>
+        <span class="m-num">M2</span>
+        <div class="m-body">
+          <strong>参考文档接入</strong>
+          本地文档上传解析（docx/pdf/txt/md，含 PDF 扫描件检测）、语雀文档拉取与快照、HTML→Markdown 转换
+          <span class="days">📅 3-5 天</span>
+        </div>
+      </li>
+      <li>
+        <span class="m-num">M3</span>
+        <div class="m-body">
+          <strong>AI 纪要生成</strong>
+          LLM 适配器抽象层、模板管理、上下文组装、大模型调用、Markdown + JSON 双格式输出
+          <span class="days">📅 3-5 天</span>
+        </div>
+      </li>
+      <li>
+        <span class="m-num">M4</span>
+        <div class="m-body">
+          <strong>输出与存储</strong>
+          钉钉推送适配、数据持久化、SQLite WAL 配置、历史查询 API、健康检查
+          <span class="days">📅 2-3 天</span>
+        </div>
+      </li>
+      <li>
+        <span class="m-num">M5</span>
+        <div class="m-body">
+          <strong>前端界面</strong>
+          Web 可视化界面（表单、上传、预览、历史列表）
+          <span class="days">📅 3-5 天</span>
+        </div>
+      </li>
+    </ul>
+    <div class="callout callout-info">
+      <strong>📊 工期估算</strong>
+      <p>整体原型全部落地：<strong>14-23 工作日</strong>（约 3-5 周）</p>
+      <p>M1-M4 后端核心能力：<strong>11-18 天</strong></p>
+      <p>若优先交付 API + CLI 模式（跳过 M5），核心能力可在 <strong>2-3 周</strong>内完成</p>
+    </div>
+  </section>
+
+  <!-- ============ 9 ============ -->
+  <section id="s9">
+    <h2>9 风险点与应对措施</h2>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>风险</th><th>应对措施</th></tr></thead>
+        <tbody>
+          <tr><td>大模型输出不稳定，JSON 格式异常</td><td>二阶段输出策略；优先使用结构化输出参数；支持宽松解析 + LLM 自修复三级降级</td></tr>
+          <tr><td>ASR 识别存在错字</td><td>保留 SRT 输入模式；Faster-Whisper 不足时可切换 Qwen3-ASR-Flash</td></tr>
+          <tr><td>语雀 Token 权限变更</td><td>友好报错；支持本地文档降级；快照保存历史版本</td></tr>
+          <tr><td>长音频转写超时阻塞</td><td>异步任务队列；音频超过 30 分钟强制异步</td></tr>
+          <tr><td>大模型 API 调用失败</td><td>指数退避重试（最多 3 次）；timeout=120s；熔断机制</td></tr>
+          <tr><td>扫描件 PDF 无法提取文本</td><td>上传时检测 PDF 类型，提示用户改用原始文档</td></tr>
+          <tr><td>文件上传安全风险</td><td>限制文件大小；MIME + magic bytes 双重校验；随机文件名</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ============ 10 ============ -->
+  <section id="s10">
+    <h2>10 后续演进规划</h2>
+    <div class="callout callout-info">
+      <strong>🚀 演进优先级建议</strong>
+      <p>以下按优先级从高到低排序：</p>
+    </div>
+    <ul class="evolve-list">
+      <li>
+        <span class="box" style="background: var(--primary); border-color: var(--primary);"></span>
+        构建会议决策 RAG 知识库，支持历史会议检索问答
+        <span class="prio tag tag-blue">P0</span>
+      </li>
+      <li>
+        <span class="box" style="background: var(--primary); border-color: var(--primary);"></span>
+        评审结果回写语雀文档
+        <span class="prio tag tag-blue">P0</span>
+      </li>
+      <li>
+        <span class="box" style="background: var(--accent); border-color: var(--accent);"></span>
+        对接企业会议开放平台，实现会议结束自动拉取转写
+        <span class="prio tag tag-green">P1</span>
+      </li>
+      <li>
+        <span class="box"></span>
+        纪要待办自动生成钉钉待办任务
+        <span class="prio tag tag-amber">P2</span>
+      </li>
+      <li>
+        <span class="box"></span>
+        增加简单用户权限控制
+        <span class="prio tag tag-amber">P2</span>
+      </li>
+      <li>
+        <span class="box"></span>
+        增加 PaddleOCR 或 Tesseract 支持扫描件 PDF 文本提取
+        <span class="prio tag tag-amber">P2</span>
+      </li>
+      <li>
+        <span class="box"></span>
+        支持 WebSocket 实时推送任务进度
+        <span class="prio tag tag-amber">P2</span>
+      </li>
+    </ul>
+  </section>
+
+  <!-- ============ 11 ============ -->
+  <section id="s11">
+    <h2>11 方案总结</h2>
+    <div class="summary-box">
+      <p style="font-size: 16px; font-weight: 500; margin-bottom: 16px;">本方案构建轻量化 AI 会议纪要中台，解决评审会议纪要痛点。</p>
+      <p><strong>核心差异化能力：</strong>语雀 PRD 基线对照评审，弥补普通纪要工具只有录音文本、缺少需求上下文的短板。</p>
+      <p style="margin-top: 12px;"><strong>架构优势：</strong></p>
+      <ul>
+        <li>模型无关，可灵活切换大模型</li>
+        <li>不依赖会议厂商企业版权限，前期原型落地成本低</li>
+        <li>中台化架构预留扩展，未来可以演进为企业级正式服务</li>
+        <li>数据内网闭环，保障业务信息安全</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <div style="text-align: center; padding: 40px 0 60px; color: var(--gray-400); font-size: 13px;">
+    <p>AI 智能会议纪要轻量化中台设计方案 · V1.1</p>
+    <p style="margin-top: 4px;">编制日期：2026-08-06 · 文档结束</p>
+  </div>
+
+</div>
+
+</body>
+</html>

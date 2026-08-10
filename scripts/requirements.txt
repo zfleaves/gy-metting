@@ -1,0 +1,4 @@
+requests>=2.25.0
+PyYAML>=5.4
+xmindparser>=1.0.0
+markitdown[all]>=0.0.1
