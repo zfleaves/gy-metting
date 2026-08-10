@@ -61,6 +61,7 @@ class Settings(BaseSettings):
     WHISPER_COMPUTE_TYPE: str = "int8"
     WHISPER_DEVICE: str = "auto"
     ASR_WORD_REPLACE: str = ""  # 自定义词替换: 错词=正确词,错词2=正确词2
+    ASR_AUTO_HIGHLIGHT: str = ""  # 自动标记重点关键词: 词1,词2,词3
     DASHSCOPE_API_KEY: Optional[str] = None
 
     # ============================================================
@@ -162,6 +163,13 @@ class Settings(BaseSettings):
                 k, v = pair.split("=", 1)
                 result[k.strip()] = v.strip()
         return result
+
+    @property
+    def auto_highlight_keywords(self) -> list:
+        """解析自动标记关键词列表"""
+        if not self.ASR_AUTO_HIGHLIGHT.strip():
+            return []
+        return [k.strip() for k in self.ASR_AUTO_HIGHLIGHT.split(",") if k.strip()]
 
     def resolve_path(self, relative_path: str) -> Path:
         """将相对路径解析为绝对路径（相对于项目根目录）"""

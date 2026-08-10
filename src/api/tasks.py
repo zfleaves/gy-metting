@@ -143,6 +143,14 @@ async def get_highlights(task_id: str):
     return {"highlighted_indices": data.get("highlighted_indices", [])}
 
 
+@router.get("/{task_id}/auto-highlight-keywords")
+async def get_auto_highlight_keywords(task_id: str):
+    """获取自动标记关键词（从配置读取）"""
+    from src.config import get_config
+    config = get_config()
+    return {"keywords": config.auto_highlight_keywords}
+
+
 @router.get("/{task_id}")
 async def get_task(task_id: str):
     """查询任务状态与结果"""

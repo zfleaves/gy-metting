@@ -52,7 +52,11 @@
           <span class="audio-time">{{ formatSegTime(currentTime) }} / {{ formatSegTime(duration) }}</span>
         </div>
 
-        <h3>转写结果（{{ parsedResult.segments_count || segments.length }} 段，{{ parsedResult.duration_seconds?.toFixed(0) || 0 }}秒）</h3>
+        <h3>转写结果（{{ parsedResult.segments_count || segments.length }} 段，{{ parsedResult.duration_seconds?.toFixed(0) || 0 }}秒）
+          <button class="auto-mark-btn" @click="autoHighlight" :disabled="autoMarking">
+            {{ autoMarking ? '标记中...' : '🤖 自动标记重点' }}
+          </button>
+        </h3>
 
         <!-- 分段时间轴 -->
         <div v-if="segments.length" class="segments-list">
@@ -267,13 +271,41 @@ async function toggleHighlight(index) {
   } else {
     highlightedIndices.value.add(index)
   }
-  // 触发响应式更新
   highlightedIndices.value = new Set(highlightedIndices.value)
-  // 保存到后端
   try {
     await saveHighlights(route.params.id, [...highlightedIndices.value])
   } catch {
-    // 保存失败忽略
+    // 忽略
+  }
+}
+
+const autoMarking = ref(false)
+
+async function autoHighlight() {
+  autoMarking.value = true
+  try {
+    // 从后端获取关键词列表
+    const res = await fetch(`/api/tasks/${route.params.id}/auto-highlight-keywords`)
+    const { keywords } = await res.json()
+    if (!keywords.length) {
+      alert('未配置自动标记关键词，请在 .env 中设置 ASR_AUTO_HIGHLIGHT')
+      return
+    }
+    const newSet = new Set(highlightedIndices.value)
+    segments.value.forEach((seg, i) => {
+      for (const kw of keywords) {
+        if (seg.text.includes(kw)) {
+          newSet.add(i)
+          break
+        }
+      }
+    })
+    highlightedIndices.value = newSet
+    await saveHighlights(route.params.id, [...newSet])
+  } catch {
+    // 忽略
+  } finally {
+    autoMarking.value = false
   }
 }
 </script>
@@ -468,6 +500,32 @@ async function toggleHighlight(index) {
   margin: 0 0 12px;
   font-size: 1rem;
   color: #334155;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.auto-mark-btn {
+  font-size: 0.8rem;
+  padding: 4px 12px;
+  border: 1px solid #f59e0b;
+  background: #fffbeb;
+  color: #92400e;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.auto-mark-btn:hover {
+  background: #f59e0b;
+  color: #fff;
+}
+
+.auto-mark-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .result-text {
