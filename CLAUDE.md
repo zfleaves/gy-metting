@@ -2,6 +2,13 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+# 强制代码检索规则（本项目已启用CodeGraph本地代码图谱）
+1. 任何代码查询、函数查找、调用链分析、架构梳理、接口溯源、变量检索需求，**必须优先调用codegraph工具**；
+2. 禁止直接使用listDir、readFile、grep遍历读取项目大量文件；
+3. 仅当codegraph返回无匹配/信息模糊时，才允许使用原生文件工具兜底；
+4. 修改需求、评估代码改动影响范围时，全部依赖codegraph图谱分析依赖关系；
+5. 回答代码相关问题时，先从codegraph获取结构化符号、调用关系，再输出内容。
+
 ## 项目概述
 
 AI 智能会议纪要轻量化中台 — 目前处于**设计阶段**，尚未开始编码。完整设计方案见 `DESIGN.md`（V1.1, 2026-08-06）。
