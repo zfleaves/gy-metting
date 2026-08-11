@@ -154,6 +154,12 @@ function resetUpload() {
   justify-content: center;
 }
 
+@media (max-width: 640px) {
+  .upload-zone {
+    padding: 32px 16px;
+  }
+}
+
 .upload-zone.dragging {
   border-color: #4f46e5;
   background: #eef2ff;

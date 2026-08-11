@@ -79,6 +79,42 @@ function doLogout() {
   flex-shrink: 0;
 }
 
+@media (max-width: 768px) {
+  .sidebar {
+    width: 60px;
+  }
+
+  .sidebar-header h1,
+  .version,
+  .nav-item span:not(.nav-icon),
+  .user-detail,
+  .btn-logout span:not(.nav-icon) {
+    display: none;
+  }
+
+  .nav-item {
+    justify-content: center;
+    padding: 12px;
+  }
+
+  .nav-icon {
+    margin: 0;
+  }
+
+  .btn-logout {
+    justify-content: center;
+    padding: 8px;
+  }
+
+  .user-info {
+    justify-content: center;
+  }
+
+  .sidebar-footer {
+    align-items: center;
+  }
+}
+
 .sidebar-header {
   padding: 20px;
   border-bottom: 1px solid #334155;

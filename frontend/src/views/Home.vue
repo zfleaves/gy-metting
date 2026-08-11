@@ -107,6 +107,12 @@ function formatTime(t) {
   max-width: 960px;
 }
 
+@media (max-width: 640px) {
+  .dashboard {
+    padding: 16px;
+  }
+}
+
 .page-bar {
   display: flex;
   align-items: center;
@@ -165,6 +171,12 @@ function formatTime(t) {
 .stat-card.green .stat-value { color: #16a34a; }
 .stat-card.yellow .stat-value { color: #ca8a04; }
 .stat-card.red .stat-value { color: #dc2626; }
+
+@media (max-width: 640px) {
+  .stats-row {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
 
 /* 卡片 */
 .card {
