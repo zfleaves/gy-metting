@@ -96,6 +96,7 @@ async function doRegister() {
   align-items: center;
   justify-content: center;
   background: #1a1a2e;
+  width: 100%;
 }
 
 .login-card {

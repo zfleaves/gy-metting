@@ -1,5 +1,5 @@
 <template>
-  <div id="app">
+  <div id="app" :class="{ 'logged-in': currentUser, 'logged-out': !currentUser }">
     <!-- 登录页不显示布局 -->
     <template v-if="!currentUser">
       <router-view />
@@ -73,9 +73,15 @@ function doLogout() {
 
 <style scoped>
 #app {
-  display: flex;
   min-height: 100vh;
-  background: #f1f5f9;
+}
+
+#app.logged-in {
+  display: flex;
+}
+
+#app.logged-out {
+  display: block;
 }
 
 /* 侧边栏 */
