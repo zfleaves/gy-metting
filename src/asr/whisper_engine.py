@@ -144,6 +144,8 @@ class WhisperEngine(BaseASREngine):
         file_size_mb = os.path.getsize(audio_path) / (1024 * 1024)
         logger.info("音频大小: %.1f MB", file_size_mb)
 
+        config = get_config()
+
         with LogTimer(logger, "ASR 转写"):
             try:
                 segments_iter, info = self._model.transcribe(

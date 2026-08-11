@@ -22,4 +22,4 @@ data/*
 
 # OS
 Thumbs.db
-.DS_Store
+.DS_Store*.stackdump
