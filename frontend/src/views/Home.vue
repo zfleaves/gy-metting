@@ -104,7 +104,6 @@ function formatTime(t) {
 <style scoped>
 .dashboard {
   padding: 24px;
-  max-width: 960px;
 }
 
 @media (max-width: 640px) {

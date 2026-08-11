@@ -244,5 +244,6 @@ function doLogout() {
   flex: 1;
   overflow-y: auto;
   min-width: 0;
+  background: #f1f5f9;
 }
 </style>
