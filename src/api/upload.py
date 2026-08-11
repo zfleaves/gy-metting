@@ -5,9 +5,11 @@
 - 限制大小 ≤ 200MB
 - 允许格式：mp3, wav, m4a
 - MIME type + magic bytes 双重校验
-- 随机文件名存储
+- SHA256 去重：相同文件不重复上传，直接复用已有结果
 """
 
+import hashlib
+import json
 import os
 import uuid
 from pathlib import Path
@@ -106,6 +108,34 @@ async def upload_audio(file: UploadFile = File(...)):
     upload_dir = config.resolve_path(config.UPLOAD_DIR) / "audio"
     upload_dir.mkdir(parents=True, exist_ok=True)
 
+    # 计算 SHA256 去重
+    file_hash = hashlib.sha256(content).hexdigest()
+    hash_file = upload_dir / "hashes.json"
+
+    # 加载已有哈希记录
+    hash_map = {}
+    if hash_file.exists():
+        try:
+            with open(hash_file, "r") as f:
+                hash_map = json.load(f)
+        except (json.JSONDecodeError, IOError):
+            pass
+
+    # 检查是否已存在相同文件
+    if file_hash in hash_map:
+        existing = hash_map[file_hash]
+        existing_path = Path(existing["path"])
+        if existing_path.exists():
+            logger.info("文件已存在，复用: id=%s, hash=%s", existing["file_id"], file_hash[:16])
+            return {
+                "file_id": existing["file_id"],
+                "filename": file.filename,
+                "format": existing["format"],
+                "size_bytes": existing["size_bytes"],
+                "path": str(existing_path),
+                "reused": True,
+            }
+
     file_id = uuid.uuid4().hex[:16]
     stored_name = f"{file_id}.{fmt}"
     stored_path = upload_dir / stored_name
@@ -113,8 +143,19 @@ async def upload_audio(file: UploadFile = File(...)):
     with open(stored_path, "wb") as f:
         f.write(content)
 
-    logger.info("音频上传成功: id=%s, name=%s, size=%d, fmt=%s",
-                 file_id, file.filename, size_bytes, fmt)
+    # 记录哈希
+    hash_map[file_hash] = {
+        "file_id": file_id,
+        "path": str(stored_path),
+        "format": fmt,
+        "size_bytes": size_bytes,
+        "filename": file.filename,
+    }
+    with open(hash_file, "w") as f:
+        json.dump(hash_map, f, ensure_ascii=False)
+
+    logger.info("音频上传成功: id=%s, name=%s, size=%d, fmt=%s, hash=%s",
+                 file_id, file.filename, size_bytes, fmt, file_hash[:16])
 
     return {
         "file_id": file_id,
@@ -122,4 +163,5 @@ async def upload_audio(file: UploadFile = File(...)):
         "format": fmt,
         "size_bytes": size_bytes,
         "path": str(stored_path),
+        "reused": False,
     }

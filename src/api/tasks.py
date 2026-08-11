@@ -29,7 +29,7 @@ async def submit_task(
     meeting_id: Optional[str] = Query(None, description="关联会议 ID"),
 ):
     """
-    提交异步任务。
+    提交异步任务。相同音频文件复用已有转写结果。
 
     返回 task_id，前端轮询 GET /api/tasks/{task_id} 获取结果。
     """
@@ -46,6 +46,19 @@ async def submit_task(
     params = {}
     if audio_path:
         params["audio_path"] = audio_path
+
+    # 去重：检查是否已有相同音频的已完成任务
+    if audio_path and tt == TaskType.ASR:
+        manager = get_task_manager()
+        existing_tasks = manager.list_tasks(status="completed", task_type="asr", limit=100)
+        for t in existing_tasks:
+            try:
+                summary = json.loads(t.get("result_summary", "{}"))
+                if summary.get("audio_path") == audio_path:
+                    logger.info("复用已有转写结果: task_id=%s, audio=%s", t["id"], audio_path)
+                    return {"task_id": t["id"], "status": "completed", "reused": True}
+            except (json.JSONDecodeError, KeyError):
+                continue
 
     manager = get_task_manager()
     try:
