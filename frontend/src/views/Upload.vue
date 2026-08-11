@@ -1,8 +1,7 @@
 <template>
   <div class="upload-page">
     <div class="page-header">
-      <router-link to="/" class="back-link">← 返回</router-link>
-      <h1>上传音频</h1>
+      <h1>音频转写</h1>
       <p>支持 mp3、wav、m4a 格式，最大 200MB</p>
     </div>
 
@@ -124,22 +123,16 @@ function resetUpload() {
 .upload-page {
   max-width: 640px;
   margin: 0 auto;
-  padding: 20px;
+  padding: 24px;
 }
 
 .page-header {
   margin-bottom: 24px;
 }
 
-.back-link {
-  color: #4f46e5;
-  text-decoration: none;
-  font-size: 0.9rem;
-}
-
 .page-header h1 {
-  font-size: 1.5rem;
-  margin: 8px 0 4px;
+  font-size: 1.3rem;
+  margin: 0 0 4px;
   color: #1a1a2e;
 }
 

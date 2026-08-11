@@ -1,32 +1,52 @@
 <template>
   <div id="app">
-    <nav class="nav" v-if="currentUser">
-      <div class="nav-inner">
-        <router-link to="/" class="logo">gy-meeting</router-link>
-        <div class="nav-links">
-          <router-link to="/">首页</router-link>
-          <router-link to="/upload">上传</router-link>
-          <router-link v-if="isAdmin" to="/users">用户管理</router-link>
-        </div>
-        <div class="nav-user">
-          <span class="user-name">{{ currentUser.username }}</span>
-          <span class="user-role-badge">{{ roleLabel(currentUser.role) }}</span>
-          <button class="btn-logout" @click="doLogout">退出</button>
-        </div>
-      </div>
-    </nav>
-    <main class="main" :class="{ full: !currentUser }">
+    <!-- 登录页不显示布局 -->
+    <template v-if="!currentUser">
       <router-view />
-    </main>
+    </template>
+
+    <!-- 后台布局 -->
+    <template v-else>
+      <aside class="sidebar">
+        <div class="sidebar-header">
+          <h1>gy-meeting</h1>
+          <span class="version">v0.2</span>
+        </div>
+        <nav class="sidebar-nav">
+          <router-link to="/" class="nav-item">
+            <span class="nav-icon">📊</span> 工作台
+          </router-link>
+          <router-link to="/upload" class="nav-item">
+            <span class="nav-icon">🎙️</span> 音频转写
+          </router-link>
+          <router-link v-if="isAdmin" to="/users" class="nav-item">
+            <span class="nav-icon">👥</span> 用户管理
+          </router-link>
+        </nav>
+        <div class="sidebar-footer">
+          <div class="user-info">
+            <div class="avatar">{{ currentUser.username[0].toUpperCase() }}</div>
+            <div class="user-detail">
+              <div class="user-name">{{ currentUser.username }}</div>
+              <div class="user-role">{{ roleLabel(currentUser.role) }}</div>
+            </div>
+          </div>
+          <button class="btn-logout" @click="doLogout" title="退出登录">
+            <span class="nav-icon">🚪</span> 退出
+          </button>
+        </div>
+      </aside>
+      <main class="main-content">
+        <router-view />
+      </main>
+    </template>
   </div>
 </template>
 
 <script setup>
 import { ref, computed } from 'vue'
 import { getStoredUser, logout } from './api.js'
-import { useRouter } from 'vue-router'
 
-const router = useRouter()
 const currentUser = ref(getStoredUser())
 
 const isAdmin = computed(() => {
@@ -34,7 +54,7 @@ const isAdmin = computed(() => {
 })
 
 function roleLabel(r) {
-  const map = { super_admin: '超管', admin: '管理员', user: '用户' }
+  const map = { super_admin: '超级管理员', admin: '管理员', user: '普通用户' }
   return map[r] || r
 }
 
@@ -44,91 +64,149 @@ function doLogout() {
 </script>
 
 <style scoped>
-.nav {
-  background: #1a1a2e;
-  padding: 0 20px;
-  height: 52px;
+#app {
   display: flex;
-  align-items: center;
+  min-height: 100vh;
+  background: #f1f5f9;
 }
 
-.nav-inner {
-  max-width: 960px;
-  margin: 0 auto;
-  width: 100%;
+/* 侧边栏 */
+.sidebar {
+  width: 220px;
+  background: #1e293b;
   display: flex;
-  align-items: center;
-  justify-content: space-between;
+  flex-direction: column;
+  flex-shrink: 0;
 }
 
-.logo {
-  color: #fff;
-  font-weight: 600;
-  font-size: 1.1rem;
-  text-decoration: none;
-}
-
-.nav-links {
+.sidebar-header {
+  padding: 20px;
+  border-bottom: 1px solid #334155;
   display: flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.nav-links a {
-  color: #94a3b8;
-  text-decoration: none;
-  padding: 6px 12px;
-  font-size: 0.9rem;
-  border-radius: 6px;
-  transition: color 0.2s;
-}
-
-.nav-links a:hover,
-.nav-links a.router-link-active {
-  color: #fff;
-}
-
-.nav-user {
-  display: flex;
-  align-items: center;
+  align-items: baseline;
   gap: 8px;
 }
 
-.user-name {
+.sidebar-header h1 {
   color: #fff;
-  font-size: 0.85rem;
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin: 0;
 }
 
-.user-role-badge {
+.version {
+  color: #64748b;
   font-size: 0.7rem;
-  padding: 2px 6px;
-  border-radius: 4px;
-  background: rgba(255,255,255,0.15);
+}
+
+.sidebar-nav {
+  flex: 1;
+  padding: 12px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
   color: #94a3b8;
+  text-decoration: none;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  transition: all 0.15s;
+}
+
+.nav-item:hover {
+  background: #334155;
+  color: #e2e8f0;
+}
+
+.nav-item.router-link-active {
+  background: #4f46e5;
+  color: #fff;
+}
+
+.nav-icon {
+  font-size: 1.1rem;
+  width: 24px;
+  text-align: center;
+}
+
+.sidebar-footer {
+  padding: 12px;
+  border-top: 1px solid #334155;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.user-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px;
+}
+
+.avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  background: #4f46e5;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  font-size: 0.9rem;
+  flex-shrink: 0;
+}
+
+.user-detail {
+  min-width: 0;
+}
+
+.user-name {
+  color: #e2e8f0;
+  font-size: 0.85rem;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.user-role {
+  color: #64748b;
+  font-size: 0.7rem;
 }
 
 .btn-logout {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
   background: none;
-  border: 1px solid #475569;
+  border: 1px solid #334155;
+  border-radius: 6px;
   color: #94a3b8;
-  padding: 4px 10px;
-  border-radius: 4px;
-  font-size: 0.8rem;
+  font-size: 0.85rem;
   cursor: pointer;
   transition: all 0.15s;
+  width: 100%;
 }
 
 .btn-logout:hover {
   border-color: #ef4444;
   color: #ef4444;
+  background: rgba(239, 68, 68, 0.1);
 }
 
-.main {
-  min-height: calc(100vh - 52px);
-  background: #f8fafc;
-}
-
-.main.full {
-  min-height: 100vh;
+/* 主内容区 */
+.main-content {
+  flex: 1;
+  overflow-y: auto;
+  min-width: 0;
 }
 </style>

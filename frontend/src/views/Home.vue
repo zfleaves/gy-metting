@@ -1,47 +1,79 @@
 <template>
-  <div class="home">
-    <div class="hero">
-      <h1>AI 智能会议纪要</h1>
-      <p class="subtitle">上传音频 → 语音转写 → AI 生成纪要，一站式完成</p>
-      <div class="actions">
-        <router-link to="/upload" class="btn-primary">开始使用</router-link>
+  <div class="dashboard">
+    <div class="page-bar">
+      <h2>工作台</h2>
+      <router-link to="/upload" class="btn-primary">+ 新建转写</router-link>
+    </div>
+
+    <!-- 统计卡片 -->
+    <div class="stats-row">
+      <div class="stat-card">
+        <div class="stat-value">{{ stats.total }}</div>
+        <div class="stat-label">总任务数</div>
+      </div>
+      <div class="stat-card green">
+        <div class="stat-value">{{ stats.completed }}</div>
+        <div class="stat-label">已完成</div>
+      </div>
+      <div class="stat-card yellow">
+        <div class="stat-value">{{ stats.processing }}</div>
+        <div class="stat-label">处理中</div>
+      </div>
+      <div class="stat-card red">
+        <div class="stat-value">{{ stats.failed }}</div>
+        <div class="stat-label">失败</div>
       </div>
     </div>
 
-    <div class="status-bar">
-      <div class="status-item">
-        <span class="dot" :class="serverOk ? 'green' : 'red'"></span>
-        服务状态: {{ serverOk ? '正常' : '离线' }}
+    <!-- 任务列表 -->
+    <div class="card">
+      <div class="card-header">
+        <h3>最近任务</h3>
       </div>
-      <div class="status-item">版本: {{ version }}</div>
-    </div>
-
-    <div class="recent-tasks" v-if="tasks.length">
-      <h2>最近任务</h2>
-      <div class="task-list">
-        <div
-          v-for="task in tasks"
-          :key="task.id"
-          class="task-card"
-          @click="$router.push(`/task/${task.id}`)"
-        >
-          <span class="task-type">{{ task.type }}</span>
-          <span class="task-status" :class="task.status">{{ statusLabel(task.status) }}</span>
-          <span class="task-time">{{ formatTime(task.created_at) }}</span>
-          <span class="task-arrow">→</span>
-        </div>
+      <div v-if="tasks.length" class="table-wrap">
+        <table class="task-table">
+          <thead>
+            <tr>
+              <th>任务 ID</th>
+              <th>类型</th>
+              <th>状态</th>
+              <th>创建时间</th>
+              <th>操作</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="task in tasks" :key="task.id" @click="$router.push(`/task/${task.id}`)">
+              <td class="mono">{{ task.id.slice(0, 8) }}...</td>
+              <td><span class="tag">{{ task.type }}</span></td>
+              <td><span class="status-tag" :class="task.status">{{ statusLabel(task.status) }}</span></td>
+              <td class="time">{{ formatTime(task.created_at) }}</td>
+              <td><router-link :to="`/task/${task.id}`" class="link">查看 →</router-link></td>
+            </tr>
+          </tbody>
+        </table>
       </div>
+      <div v-else class="empty">暂无任务，点击右上角「新建转写」开始</div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { healthCheck, listTasks } from '../api.js'
 
 const serverOk = ref(false)
 const version = ref('')
 const tasks = ref([])
+
+const stats = computed(() => {
+  const all = tasks.value.length
+  return {
+    total: all,
+    completed: tasks.value.filter(t => t.status === 'completed').length,
+    processing: tasks.value.filter(t => t.status === 'processing').length,
+    failed: tasks.value.filter(t => t.status === 'failed').length,
+  }
+})
 
 onMounted(async () => {
   try {
@@ -51,10 +83,8 @@ onMounted(async () => {
   } catch {
     serverOk.value = false
   }
-
   try {
-    const t = await listTasks({ limit: 5 })
-    tasks.value = t
+    tasks.value = await listTasks({ limit: 20 })
   } catch {
     // 忽略
   }
@@ -67,49 +97,36 @@ function statusLabel(s) {
 
 function formatTime(t) {
   if (!t) return ''
-  const d = new Date(t + 'Z')
-  return d.toLocaleString('zh-CN')
+  return new Date(t + 'Z').toLocaleString('zh-CN')
 }
 </script>
 
 <style scoped>
-.home {
-  max-width: 800px;
-  margin: 0 auto;
-  padding: 20px;
+.dashboard {
+  padding: 24px;
+  max-width: 960px;
 }
 
-.hero {
-  text-align: center;
-  padding: 60px 20px;
-}
-
-.hero h1 {
-  font-size: 2rem;
-  color: #1a1a2e;
-  margin-bottom: 12px;
-}
-
-.subtitle {
-  color: #666;
-  font-size: 1.1rem;
-  margin-bottom: 32px;
-}
-
-.actions {
+.page-bar {
   display: flex;
-  justify-content: center;
-  gap: 16px;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 24px;
+}
+
+.page-bar h2 {
+  font-size: 1.3rem;
+  color: #1e293b;
+  margin: 0;
 }
 
 .btn-primary {
-  display: inline-block;
-  padding: 12px 32px;
+  padding: 8px 20px;
   background: #4f46e5;
   color: #fff;
   border-radius: 8px;
   text-decoration: none;
-  font-size: 1rem;
+  font-size: 0.9rem;
   font-weight: 500;
   transition: background 0.2s;
 }
@@ -118,82 +135,131 @@ function formatTime(t) {
   background: #4338ca;
 }
 
-.status-bar {
-  display: flex;
-  gap: 24px;
-  padding: 12px 16px;
-  background: #f8fafc;
-  border-radius: 8px;
-  margin-bottom: 30px;
-  font-size: 0.9rem;
-  color: #64748b;
+/* 统计卡片 */
+.stats-row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin-bottom: 24px;
 }
 
-.dot {
-  display: inline-block;
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  margin-right: 6px;
+.stat-card {
+  background: #fff;
+  border-radius: 10px;
+  padding: 20px;
+  border: 1px solid #e2e8f0;
 }
 
-.dot.green { background: #22c55e; }
-.dot.red { background: #ef4444; }
+.stat-value {
+  font-size: 1.8rem;
+  font-weight: 700;
+  color: #1e293b;
+  margin-bottom: 4px;
+}
 
-.recent-tasks h2 {
-  font-size: 1.2rem;
-  margin-bottom: 12px;
+.stat-label {
+  font-size: 0.85rem;
+  color: #94a3b8;
+}
+
+.stat-card.green .stat-value { color: #16a34a; }
+.stat-card.yellow .stat-value { color: #ca8a04; }
+.stat-card.red .stat-value { color: #dc2626; }
+
+/* 卡片 */
+.card {
+  background: #fff;
+  border-radius: 10px;
+  border: 1px solid #e2e8f0;
+  overflow: hidden;
+}
+
+.card-header {
+  padding: 16px 20px;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.card-header h3 {
+  margin: 0;
+  font-size: 1rem;
   color: #334155;
 }
 
-.task-list {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
+.table-wrap {
+  overflow-x: auto;
 }
 
-.task-card {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 12px 16px;
-  background: #fff;
-  border: 1px solid #e2e8f0;
-  border-radius: 8px;
+.task-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.task-table th {
+  text-align: left;
+  padding: 10px 20px;
+  font-size: 0.8rem;
+  color: #94a3b8;
+  font-weight: 500;
+  background: #f8fafc;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.task-table td {
+  padding: 12px 20px;
+  font-size: 0.9rem;
+  color: #334155;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.task-table tbody tr {
   cursor: pointer;
-  transition: box-shadow 0.2s;
+  transition: background 0.1s;
 }
 
-.task-card:hover {
-  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+.task-table tbody tr:hover {
+  background: #f8fafc;
 }
 
-.task-type {
+.mono {
+  font-family: monospace;
+  font-size: 0.85rem;
+  color: #64748b;
+}
+
+.tag {
   background: #e0e7ff;
   color: #4f46e5;
   padding: 2px 8px;
   border-radius: 4px;
-  font-size: 0.85rem;
+  font-size: 0.8rem;
 }
 
-.task-status {
-  font-size: 0.85rem;
+.status-tag {
+  font-size: 0.8rem;
   padding: 2px 8px;
   border-radius: 4px;
 }
 
-.task-status.completed { background: #dcfce7; color: #16a34a; }
-.task-status.failed { background: #fef2f2; color: #dc2626; }
-.task-status.processing { background: #fef9c3; color: #ca8a04; }
-.task-status.pending { background: #f1f5f9; color: #64748b; }
+.status-tag.completed { background: #dcfce7; color: #16a34a; }
+.status-tag.failed { background: #fef2f2; color: #dc2626; }
+.status-tag.processing { background: #fef9c3; color: #ca8a04; }
+.status-tag.pending { background: #f1f5f9; color: #64748b; }
 
-.task-time {
+.time {
   color: #94a3b8;
   font-size: 0.85rem;
-  margin-left: auto;
 }
 
-.task-arrow {
+.link {
+  color: #4f46e5;
+  text-decoration: none;
+  font-size: 0.85rem;
+}
+
+.empty {
+  padding: 40px;
+  text-align: center;
   color: #94a3b8;
+  font-size: 0.9rem;
 }
 </style>

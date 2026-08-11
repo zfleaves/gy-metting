@@ -1,7 +1,6 @@
 <template>
   <div class="task-page">
     <div class="page-header">
-      <router-link to="/" class="back-link">← 返回</router-link>
       <h1>任务详情</h1>
     </div>
 
@@ -442,22 +441,16 @@ async function autoHighlight() {
 .task-page {
   max-width: 720px;
   margin: 0 auto;
-  padding: 20px;
+  padding: 24px;
 }
 
 .page-header {
   margin-bottom: 24px;
 }
 
-.back-link {
-  color: #4f46e5;
-  text-decoration: none;
-  font-size: 0.9rem;
-}
-
 .page-header h1 {
-  font-size: 1.5rem;
-  margin: 8px 0 4px;
+  font-size: 1.3rem;
+  margin: 0;
   color: #1a1a2e;
 }
 
