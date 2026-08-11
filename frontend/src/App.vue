@@ -44,10 +44,18 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
 import { getStoredUser, logout } from './api.js'
 
+const router = useRouter()
+const route = useRoute()
+
+// 每次路由变化时重新读取用户状态
 const currentUser = ref(getStoredUser())
+watch(() => route.path, () => {
+  currentUser.value = getStoredUser()
+})
 
 const isAdmin = computed(() => {
   return currentUser.value?.role === 'super_admin' || currentUser.value?.role === 'admin'
