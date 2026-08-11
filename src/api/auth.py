@@ -35,7 +35,7 @@ JWT_ALGORITHM = "HS256"
 JWT_EXPIRE_HOURS = 24
 
 # 公开接口（无需认证）
-PUBLIC_PATHS = {"/health", "/api/auth/login", "/docs", "/openapi.json", "/redoc"}
+PUBLIC_PATHS = {"/health", "/api/auth/login", "/api/auth/register", "/docs", "/openapi.json", "/redoc"}
 
 
 # ============================================================
@@ -129,6 +129,48 @@ async def me(request: Request):
     if not user:
         raise HTTPException(status_code=401, detail="未登录")
     return user
+
+
+@router.post("/register")
+async def register(body: dict):
+    """注册新用户（默认角色为 user）"""
+    username = body.get("username", "").strip()
+    password = body.get("password", "").strip()
+
+    if not username or not password:
+        raise HTTPException(status_code=400, detail="用户名和密码不能为空")
+    if len(username) < 2:
+        raise HTTPException(status_code=400, detail="用户名至少 2 个字符")
+    if len(password) < 4:
+        raise HTTPException(status_code=400, detail="密码至少 4 个字符")
+
+    db = SessionLocal()
+    try:
+        existing = db.query(User).filter(User.username == username).first()
+        if existing:
+            raise HTTPException(status_code=400, detail="用户名已存在")
+
+        user = User(
+            username=username,
+            password_hash=hash_password(password),
+            role=UserRole.USER,
+        )
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+
+        token = create_token(user.id, user.username, user.role.value)
+        logger.info("用户注册: %s", username)
+        return {
+            "token": token,
+            "user": {
+                "id": user.id,
+                "username": user.username,
+                "role": user.role.value,
+            },
+        }
+    finally:
+        db.close()
 
 
 # ============================================================

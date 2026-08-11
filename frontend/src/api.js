@@ -61,6 +61,17 @@ export async function login(username, password) {
   return res.user
 }
 
+// 注册
+export async function register(username, password) {
+  const res = await request('/api/auth/register', {
+    method: 'POST',
+    body: JSON.stringify({ username, password }),
+  })
+  setToken(res.token)
+  localStorage.setItem('auth_user', JSON.stringify(res.user))
+  return res.user
+}
+
 // 退出
 export function logout() {
   clearToken()
