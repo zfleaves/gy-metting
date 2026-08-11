@@ -38,8 +38,6 @@ async def handle_asr_task(task_id: str, params: Dict[str, Any]) -> Dict[str, Any
     Returns:
         {"result_path": "...", "text_preview": "...", "segments_count": N}
     """
-    from src.task.queue import get_task_manager
-
     audio_path = params.get("audio_path")
     if not audio_path:
         raise ValueError("缺少 audio_path 参数")
@@ -114,9 +112,11 @@ def _auto_highlight(segments: list, keywords: list) -> list:
                 highlighted.append(i)
                 break
     return highlighted
+
+
+def _update_progress(task_id: str, progress: float) -> None:
     """更新任务进度到数据库"""
     try:
-        from src.task.queue import get_task_manager
         from src.storage.db import SessionLocal
         from src.storage.models import Task
         db = SessionLocal()
