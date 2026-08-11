@@ -11,7 +11,7 @@ import json
 import os
 from typing import Optional
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Request
 
 from src.log_utils import get_logger
 from src.storage.models import TaskType
@@ -24,6 +24,7 @@ router = APIRouter(prefix="/tasks", tags=["任务管理"])
 
 @router.post("")
 async def submit_task(
+    request: Request,
     task_type: str = Query(..., description="任务类型: asr | minutes | yuque_pull"),
     audio_path: Optional[str] = Query(None, description="音频文件路径（ASR 任务）"),
     meeting_id: Optional[str] = Query(None, description="关联会议 ID"),
@@ -41,6 +42,10 @@ async def submit_task(
             status_code=400,
             detail=f"不支持的任务类型: {task_type}，可选: asr, minutes, yuque_pull",
         )
+
+    # 获取当前用户
+    user = getattr(request.state, "user", None)
+    user_id = user["user_id"] if user else None
 
     # 构建参数
     params = {}
@@ -62,7 +67,7 @@ async def submit_task(
 
     manager = get_task_manager()
     try:
-        task_id = await manager.submit(tt, params, meeting_id=meeting_id)
+        task_id = await manager.submit(tt, params, meeting_id=meeting_id, user_id=user_id)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -222,22 +227,37 @@ async def list_fluff():
 
 
 @router.get("/{task_id}")
-async def get_task(task_id: str):
+async def get_task(request: Request, task_id: str):
     """查询任务状态与结果"""
     manager = get_task_manager()
     task = manager.get_task(task_id)
     if not task:
         raise HTTPException(status_code=404, detail=f"任务不存在: {task_id}")
+
+    # 权限检查：用户只能看自己的任务，管理员可看全部
+    user = getattr(request.state, "user", None)
+    if user and user["role"] not in ("super_admin", "admin"):
+        if task.get("user_id") and task["user_id"] != user["user_id"]:
+            raise HTTPException(status_code=403, detail="无权访问此任务")
+
     return task
 
 
 @router.get("")
 async def list_tasks(
+    request: Request,
     status: Optional[str] = Query(None, description="按状态筛选: pending/processing/completed/failed"),
     task_type: Optional[str] = Query(None, description="按类型筛选: asr/minutes/yuque_pull"),
     limit: int = Query(20, ge=1, le=100),
     offset: int = Query(0, ge=0),
 ):
-    """列出任务（分页）"""
+    """列出任务（分页），按用户隔离"""
+    user = getattr(request.state, "user", None)
     manager = get_task_manager()
+
+    # 普通用户只看自己的任务
+    if user and user["role"] not in ("super_admin", "admin"):
+        from src.task.queue import list_tasks_by_user
+        return list_tasks_by_user(user["user_id"], status=status, task_type=task_type, limit=limit, offset=offset)
+
     return manager.list_tasks(status=status, task_type=task_type, limit=limit, offset=offset)

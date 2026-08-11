@@ -3,6 +3,7 @@
 import asyncio
 import pytest
 from src.task.queue import TaskManager, get_task_manager
+from src.storage.db import init_db
 from src.storage.models import TaskType, TaskStatus
 
 
@@ -22,6 +23,7 @@ class TestTaskManager:
 
     @pytest.fixture(autouse=True)
     def setup(self):
+        init_db()
         self.manager = TaskManager(max_concurrent=2)
         self.manager.register_handler(TaskType("asr"), _echo_handler)
         self.manager.register_handler(TaskType("yuque_pull"), _fail_handler)

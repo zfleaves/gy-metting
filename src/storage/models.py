@@ -41,6 +41,30 @@ class TaskType(str, PyEnum):
 
 
 # ============================================================
+# 用户模型
+# ============================================================
+
+class UserRole(str, PyEnum):
+    SUPER_ADMIN = "super_admin"
+    ADMIN = "admin"
+    USER = "user"
+
+
+class User(Base):
+    """用户"""
+
+    __tablename__ = "users"
+
+    id = Column(String(32), primary_key=True, default=_new_id)
+    username = Column(String(50), unique=True, nullable=False, index=True)
+    password_hash = Column(String(200), nullable=False)
+    role = Column(Enum(UserRole), nullable=False, default=UserRole.USER)
+    created_at = Column(DateTime, nullable=False, default=_utcnow)
+
+    tasks = relationship("Task", back_populates="user")
+
+
+# ============================================================
 # 任务模型
 # ============================================================
 
@@ -75,7 +99,11 @@ class Task(Base):
     # 关联会议（可选，纪要任务关联）
     meeting_id = Column(String(32), ForeignKey("meetings.id"), nullable=True, index=True)
 
+    # 关联用户
+    user_id = Column(String(32), ForeignKey("users.id"), nullable=True, index=True)
+
     meeting = relationship("Meeting", back_populates="tasks")
+    user = relationship("User", back_populates="tasks")
 
 
 # ============================================================

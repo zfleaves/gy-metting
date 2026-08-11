@@ -32,6 +32,10 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     init_db()
     logger.info("数据库初始化完成")
 
+    # 初始化默认管理员
+    from src.api.auth import init_default_admin
+    init_default_admin()
+
     # 注册 ASR 任务处理器
     from src.asr.task_handler import register_asr_handler
     register_asr_handler()
@@ -80,6 +84,30 @@ def create_app() -> FastAPI:
         response = await call_next(request)
         response.headers["X-Request-ID"] = rid
         return response
+
+    # JWT 认证中间件
+    @app.middleware("http")
+    async def auth_middleware(request: Request, call_next):
+        from src.api.auth import PUBLIC_PATHS, decode_token
+        request.state.user = None
+
+        # 公开接口跳过认证
+        if request.url.path in PUBLIC_PATHS:
+            return await call_next(request)
+
+        # 提取 token
+        auth_header = request.headers.get("Authorization", "")
+        if auth_header.startswith("Bearer "):
+            token = auth_header[7:]
+            payload = decode_token(token)
+            if payload:
+                request.state.user = {
+                    "user_id": payload["user_id"],
+                    "username": payload["username"],
+                    "role": payload["role"],
+                }
+
+        return await call_next(request)
 
     # 全局异常处理
     @app.exception_handler(Exception)

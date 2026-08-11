@@ -63,6 +63,7 @@ class TaskManager:
         task_type: TaskType,
         params: Optional[Dict[str, Any]] = None,
         meeting_id: Optional[str] = None,
+        user_id: Optional[str] = None,
     ) -> str:
         """
         提交任务。
@@ -89,6 +90,7 @@ class TaskManager:
                 status=TaskStatus.PENDING,
                 params_json=json.dumps(params) if params else None,
                 meeting_id=meeting_id,
+                user_id=user_id,
             )
             db.add(task)
             db.commit()
@@ -291,6 +293,7 @@ def _task_to_dict(task: Task) -> Dict[str, Any]:
         "result_path": task.result_path,
         "error_message": task.error_message,
         "meeting_id": task.meeting_id,
+        "user_id": task.user_id,
         "created_at": task.created_at.isoformat() if task.created_at else None,
         "started_at": task.started_at.isoformat() if task.started_at else None,
         "completed_at": task.completed_at.isoformat() if task.completed_at else None,
@@ -307,3 +310,24 @@ def get_task_manager() -> TaskManager:
     if _task_manager is None:
         _task_manager = TaskManager()
     return _task_manager
+
+
+def list_tasks_by_user(
+    user_id: str,
+    status: Optional[str] = None,
+    task_type: Optional[str] = None,
+    limit: int = 20,
+    offset: int = 0,
+) -> list[Dict[str, Any]]:
+    """按用户过滤任务列表"""
+    db = SessionLocal()
+    try:
+        q = db.query(Task).filter(Task.user_id == user_id)
+        if status:
+            q = q.filter(Task.status == status)
+        if task_type:
+            q = q.filter(Task.type == task_type)
+        q = q.order_by(Task.created_at.desc()).offset(offset).limit(limit)
+        return [_task_to_dict(t) for t in q.all()]
+    finally:
+        db.close()
