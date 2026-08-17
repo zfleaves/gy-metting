@@ -64,6 +64,7 @@ class TaskManager:
         params: Optional[Dict[str, Any]] = None,
         meeting_id: Optional[str] = None,
         user_id: Optional[str] = None,
+        name: Optional[str] = None,
     ) -> str:
         """
         提交任务。
@@ -72,6 +73,8 @@ class TaskManager:
             task_type: 任务类型
             params: 任务参数（JSON 可序列化）
             meeting_id: 关联的会议 ID（可选）
+            user_id: 关联的用户 ID（可选）
+            name: 任务名称（可选，默认取上传文件名）
 
         Returns:
             task_id: 任务 ID
@@ -91,6 +94,7 @@ class TaskManager:
                 params_json=json.dumps(params) if params else None,
                 meeting_id=meeting_id,
                 user_id=user_id,
+                name=name,
             )
             db.add(task)
             db.commit()
@@ -286,6 +290,7 @@ class TaskManager:
 def _task_to_dict(task: Task) -> Dict[str, Any]:
     return {
         "id": task.id,
+        "name": task.name,
         "type": task.type.value if task.type else None,
         "status": task.status.value if task.status else None,
         "progress": task.progress,

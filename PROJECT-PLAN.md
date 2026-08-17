@@ -9,7 +9,7 @@
 | 阶段 | 后端内容 | 前端内容 | 预估工时 | 状态 |
 |------|---------|---------|---------|------|
 | [准备阶段](#准备阶段) | 工程骨架 | — | — | ✅ 完成 |
-| [M1 基础能力](#m1-基础能力) | FastAPI + ASR + 任务队列 | 前端骨架 + 音频上传页 | 4-6 天 | ✅ 完成 |
+| [M1 基础能力](#m1-基础能力) | FastAPI + ASR + 任务队列 | 前端骨架 + 音频上传页 | 4-6 天 | ✅ 完成 (2026-08-17) |
 | [M2 参考文档](#m2-参考文档) | 文档解析 + 语雀拉取 | 文档上传/语雀链接页 | 4-6 天 | ⬜ 待开始 |
 | [M3 AI 纪要](#m3-ai-纪要) | LLM 适配器 + 纪要生成 | 纪要结果展示页 | 4-6 天 | ⬜ 待开始 |
 | [M4 输出与存储](#m4-输出与存储) | 钉钉推送 + 存储 + 查询 | 历史列表 + 搜索 | 3-4 天 | ⬜ 待开始 |
@@ -38,24 +38,26 @@
 
 ### 后端
 
-- [ ] 配置管理模块（从 `.env` 加载，pydantic-settings）
-- [ ] FastAPI 应用框架（`app.py`、路由注册、CORS、异常处理）
-- [ ] 日志模块（结构化 JSON 日志，请求 ID 追踪）
-- [ ] 数据库初始化（SQLite WAL，SQLAlchemy 模型，迁移脚本）
-- [ ] ASR 引擎抽象层（`src/asr/base.py`，统一接口）
-- [ ] ASR 模块 — Faster-Whisper 集成（`src/asr/whisper_engine.py`）
-- [ ] 异步任务队列（`src/task/`，内存队列 + 状态机 + 数据库状态表）
-- [ ] 音频上传 API（`POST /api/upload/audio`）
-- [ ] 任务提交/查询 API（`POST /api/tasks`、`GET /api/tasks/{id}`）
+- [x] 配置管理模块（从 `.env` 加载，pydantic-settings）
+- [x] FastAPI 应用框架（`app.py`、路由注册、CORS、异常处理、前端 SPA 托管）
+- [x] 日志模块（结构化 JSON 日志，请求 ID 追踪）
+- [x] 数据库初始化（SQLite WAL，SQLAlchemy 模型，迁移脚本）
+- [x] ASR 引擎抽象层（`src/asr/base.py`，统一接口 + 进度回调）
+- [x] ASR 模块 — Faster-Whisper 集成（`src/asr/whisper_engine.py`，线程池）
+- [x] 异步任务队列（`src/task/`，内存队列 + 状态机 + 数据库状态表）
+- [x] 音频上传 API（`POST /api/upload/audio`，含去重）
+- [x] 任务提交/查询 API（`POST /api/tasks`、`GET /api/tasks/{id}`、`DELETE`）
+- [x] 任务名称 + 进度细粒度回调 + 删除功能
 - [ ] 单元测试：ASR 引擎、任务队列、配置加载
 
 ### 前端（同步）
 
-- [ ] 前端技术选型：**Vue 3**（Composition API + Vite + Vue Router）
-- [ ] 前端项目骨架（`frontend/`，Vite 初始化、路由、布局、导航、主题）
-- [ ] 音频上传页面（拖拽/选择文件、进度条、格式校验）
-- [ ] 转写结果展示页（实时轮询任务状态、文本渲染）
-- [ ] 前端与后端 API 联通
+- [x] 前端技术选型：**Vue 3**（Composition API + Vite + Vue Router）
+- [x] 前端项目骨架（`frontend/`，Vite 初始化、路由、布局、导航、主题）
+- [x] 音频上传页面（拖拽/选择文件、进度条、格式校验）
+- [x] 转写结果展示页（实时轮询任务状态、文本渲染、分段对照、重点标记）
+- [x] 前端与后端 API 联通
+- [x] 登录/注册 + 用户管理 + 中台管理布局 + 响应式 + 任务删除
 
 ### 验收标准
 

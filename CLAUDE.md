@@ -90,7 +90,8 @@ data/
 
 ## 当前项目状态
 
-- **阶段**：设计阶段，未开始编码
-- **现有资产**：`DESIGN.md`（唯一权威设计文档）、`DESIGN-REPORT.html`（可视化预览）、`.env`（配置模板）、语雀拉取脚本（从 chongya-miniapp 复用）
+- **阶段**：M1 基础能力已完成（2026-08-17），M2 参考文档待开始
+- **现有资产**：`DESIGN.md`（唯一权威设计文档）、`DESIGN-REPORT.html`（可视化预览）、`.env`（配置模板）、语雀拉取脚本（从 chongya-miniapp 复用）；M1 完整后端（FastAPI + ASR + 任务队列）+ 前端（Vue3 + 中台管理布局 + 音频上传 + 转写结果展示 + 登录/注册 + 用户管理 + 任务删除）
 - **Skill**：`.claude/skills/gy-meeting-yuque-pull/SKILL.md` — 语雀文档拉取自动化流程
 - **本地配置**：`.claude/settings.local.json` — pip install / python 等命令权限
+- **启动方式**：`python main.py`，后端直接 serve 前端（`http://localhost:8000`），无需单独启动 Vite

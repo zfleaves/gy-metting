@@ -2,10 +2,13 @@
 ASR 任务处理器 (DESIGN.md §3.1.1 + §3.6)
 
 连接任务队列与 ASR 引擎，将转写结果保存到文件。
+所有重 CPU 操作（模型加载、转写）通过线程池执行，避免阻塞事件循环。
 """
 
+import asyncio
 import json
 import os
+import time
 from typing import Any, Dict
 
 from src.asr import create_asr_engine
@@ -29,14 +32,7 @@ def _get_engine():
 
 async def handle_asr_task(task_id: str, params: Dict[str, Any]) -> Dict[str, Any]:
     """
-    处理 ASR 转写任务。
-
-    Args:
-        task_id: 任务 ID
-        params: {"audio_path": "..."}
-
-    Returns:
-        {"result_path": "...", "text_preview": "...", "segments_count": N}
+    处理 ASR 转写任务。重 CPU 部分通过线程池执行。
     """
     audio_path = params.get("audio_path")
     if not audio_path:
@@ -48,12 +44,25 @@ async def handle_asr_task(task_id: str, params: Dict[str, Any]) -> Dict[str, Any
     # 更新进度：加载模型
     _update_progress(task_id, 0.1)
 
-    engine = _get_engine()
+    # 模型加载 → 线程池（避免阻塞事件循环）
+    engine = await asyncio.to_thread(_get_engine)
 
     # 更新进度：开始转写
     _update_progress(task_id, 0.2)
 
-    result = engine.transcribe(audio_path)
+    # 节流进度回调
+    _throttle_state = {"last_db_write": 0.0}
+
+    def _on_progress(p: float) -> None:
+        now = time.time()
+        if now - _throttle_state["last_db_write"] >= 2.0:
+            _update_progress(task_id, round(p, 2))
+            _throttle_state["last_db_write"] = now
+
+    # 转写 → 线程池
+    result = await asyncio.to_thread(
+        engine.transcribe, audio_path, progress_callback=_on_progress
+    )
 
     # 更新进度：保存结果
     _update_progress(task_id, 0.9)

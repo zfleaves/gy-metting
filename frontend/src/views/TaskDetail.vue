@@ -17,6 +17,7 @@
       <!-- 状态卡片 -->
       <div class="status-card" :class="task.status">
         <div class="status-badge">{{ statusLabel(task.status) }}</div>
+        <div v-if="task.name" class="task-title">{{ task.name }}</div>
         <div class="task-meta">
           <div><span class="label">任务 ID</span> {{ task.id }}</div>
           <div><span class="label">类型</span> {{ task.type }}</div>
@@ -339,8 +340,9 @@ function formatSegTime(seconds) {
 }
 
 function progressLabel(p) {
-  if (p < 0.15) return '加载模型中...'
-  if (p < 0.3) return '转写中...'
+  if (p < 0.08) return '排队等待中...'
+  if (p < 0.18) return '加载模型中...'
+  if (p < 0.85) return `转写中...已完成 ${Math.round(p * 100)}%`
   if (p < 0.95) return '保存结果...'
   return '即将完成...'
 }
@@ -551,6 +553,14 @@ async function autoHighlight() {
 .status-card.failed .status-badge { background: #dc2626; color: #fff; }
 .status-card.processing .status-badge { background: #ca8a04; color: #fff; }
 .status-card.pending .status-badge { background: #64748b; color: #fff; }
+
+.task-title {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #1e293b;
+  margin-bottom: 12px;
+  word-break: break-all;
+}
 
 .task-meta {
   display: grid;

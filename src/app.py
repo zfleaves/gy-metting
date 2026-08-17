@@ -5,9 +5,10 @@ FastAPI 应用工厂 (DESIGN.md §2.1 接入层)
 """
 
 from contextlib import asynccontextmanager
+from pathlib import Path
 from typing import AsyncGenerator
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
@@ -135,5 +136,22 @@ def create_app() -> FastAPI:
             "db": "connected",
             "disk_free_mb": round(free_mb, 1),
         }
+
+    # 前端静态文件（SPA 模式）
+    from fastapi.staticfiles import StaticFiles
+    frontend_dir = Path(__file__).resolve().parent.parent / "frontend" / "dist"
+    if frontend_dir.exists():
+        assets_dir = frontend_dir / "assets"
+        if assets_dir.exists():
+            app.mount("/assets", StaticFiles(directory=str(assets_dir)), name="assets")
+
+        # SPA fallback：非 /api 非 /health 的请求返回 index.html
+        @app.get("/{full_path:path}")
+        async def serve_frontend(full_path: str):
+            index_path = frontend_dir / "index.html"
+            if not index_path.exists():
+                raise HTTPException(status_code=404, detail="Frontend not built")
+            from fastapi.responses import FileResponse
+            return FileResponse(str(index_path))
 
     return app

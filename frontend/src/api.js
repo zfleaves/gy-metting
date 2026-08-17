@@ -121,14 +121,20 @@ export function uploadAudio(file) {
 }
 
 // 提交任务
-export function submitTask(taskType, params = {}) {
+export function submitTask(taskType, params = {}, name = '') {
   const query = new URLSearchParams({ task_type: taskType, ...params })
+  if (name) query.set('name', name)
   return request(`/api/tasks?${query}`, { method: 'POST' })
 }
 
 // 查询任务
 export function getTask(taskId) {
   return request(`/api/tasks/${taskId}`)
+}
+
+// 删除任务
+export function deleteTask(taskId) {
+  return request(`/api/tasks/${taskId}`, { method: 'DELETE' })
 }
 
 // 获取分段数据

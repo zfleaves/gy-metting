@@ -28,6 +28,7 @@ async def submit_task(
     task_type: str = Query(..., description="任务类型: asr | minutes | yuque_pull"),
     audio_path: Optional[str] = Query(None, description="音频文件路径（ASR 任务）"),
     meeting_id: Optional[str] = Query(None, description="关联会议 ID"),
+    name: Optional[str] = Query(None, description="任务名称（默认取上传文件名）"),
 ):
     """
     提交异步任务。相同音频文件复用已有转写结果。
@@ -67,7 +68,7 @@ async def submit_task(
 
     manager = get_task_manager()
     try:
-        task_id = await manager.submit(tt, params, meeting_id=meeting_id, user_id=user_id)
+        task_id = await manager.submit(tt, params, meeting_id=meeting_id, user_id=user_id, name=name)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -241,6 +242,58 @@ async def get_task(request: Request, task_id: str):
             raise HTTPException(status_code=403, detail="无权访问此任务")
 
     return task
+
+
+@router.delete("/{task_id}")
+async def delete_task(request: Request, task_id: str):
+    """删除任务及其关联数据（音频、转写结果等）"""
+    from src.storage.db import SessionLocal
+    from src.storage.models import Task
+
+    db = SessionLocal()
+    try:
+        task = db.query(Task).filter(Task.id == task_id).first()
+        if not task:
+            raise HTTPException(status_code=404, detail=f"任务不存在: {task_id}")
+
+        # 权限检查
+        user = getattr(request.state, "user", None)
+        if user and user["role"] not in ("super_admin", "admin"):
+            if task.user_id and task.user_id != user["user_id"]:
+                raise HTTPException(status_code=403, detail="无权删除此任务")
+
+        # 清理关联文件
+        result_summary = task.result_summary
+        if result_summary:
+            try:
+                summary = json.loads(result_summary)
+                # 删除转写文件
+                for key in ("result_path", "segments_path"):
+                    filepath = summary.get(key)
+                    if filepath and os.path.exists(filepath):
+                        os.remove(filepath)
+                # 删除 highlights 文件
+                segments_path = summary.get("segments_path")
+                if segments_path:
+                    highlights_path = os.path.join(
+                        os.path.dirname(segments_path), f"{task_id}_highlights.json"
+                    )
+                    if os.path.exists(highlights_path):
+                        os.remove(highlights_path)
+                # 删除音频文件
+                audio_path = summary.get("audio_path")
+                if audio_path and os.path.exists(audio_path):
+                    os.remove(audio_path)
+            except (json.JSONDecodeError, KeyError):
+                pass
+
+        # 删除任务记录
+        db.delete(task)
+        db.commit()
+        logger.info("任务已删除: id=%s, name=%s", task_id, task.name or "")
+        return {"deleted": True, "task_id": task_id}
+    finally:
+        db.close()
 
 
 @router.get("")

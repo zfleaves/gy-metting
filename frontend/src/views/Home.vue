@@ -34,7 +34,7 @@
         <table class="task-table">
           <thead>
             <tr>
-              <th>任务 ID</th>
+              <th>任务名称</th>
               <th>类型</th>
               <th>状态</th>
               <th>创建时间</th>
@@ -43,27 +43,44 @@
           </thead>
           <tbody>
             <tr v-for="task in tasks" :key="task.id" @click="$router.push(`/task/${task.id}`)">
-              <td class="mono">{{ task.id.slice(0, 8) }}...</td>
+              <td class="task-name">{{ task.name || task.id.slice(0, 8) + '...' }}</td>
               <td><span class="tag">{{ task.type }}</span></td>
               <td><span class="status-tag" :class="task.status">{{ statusLabel(task.status) }}</span></td>
               <td class="time">{{ formatTime(task.created_at) }}</td>
-              <td><router-link :to="`/task/${task.id}`" class="link">查看 →</router-link></td>
+              <td class="actions">
+                <router-link :to="`/task/${task.id}`" class="link" @click.stop>查看</router-link>
+                <button class="btn-del" @click.stop="confirmDelete(task)" title="删除">🗑</button>
+              </td>
             </tr>
           </tbody>
         </table>
       </div>
       <div v-else class="empty">暂无任务，点击右上角「新建转写」开始</div>
     </div>
+
+    <!-- 删除确认弹窗 -->
+    <div v-if="deleting" class="modal-overlay" @click="cancelDelete">
+      <div class="modal-box" @click.stop>
+        <h3>确认删除</h3>
+        <p>确定要删除任务「<strong>{{ deleting.name || deleting.id }}</strong>」吗？</p>
+        <p class="modal-hint">此操作将同时删除关联的音频文件和转写结果，不可恢复。</p>
+        <div class="modal-actions">
+          <button class="btn-cancel" @click="cancelDelete">取消</button>
+          <button class="btn-danger" @click="doDelete">确认删除</button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup>
 import { ref, onMounted, computed } from 'vue'
-import { healthCheck, listTasks } from '../api.js'
+import { healthCheck, listTasks, deleteTask } from '../api.js'
 
 const serverOk = ref(false)
 const version = ref('')
 const tasks = ref([])
+const deleting = ref(null)
 
 const stats = computed(() => {
   const all = tasks.value.length
@@ -75,20 +92,18 @@ const stats = computed(() => {
   }
 })
 
-onMounted(async () => {
+onMounted(() => { loadTasks() })
+
+async function loadTasks() {
   try {
     const h = await healthCheck()
     serverOk.value = h.status === 'ok'
     version.value = h.version
-  } catch {
-    serverOk.value = false
-  }
+  } catch { serverOk.value = false }
   try {
     tasks.value = await listTasks({ limit: 20 })
-  } catch {
-    // 忽略
-  }
-})
+  } catch { /* ignore */ }
+}
 
 function statusLabel(s) {
   const map = { pending: '等待中', processing: '处理中', completed: '已完成', failed: '失败' }
@@ -98,6 +113,27 @@ function statusLabel(s) {
 function formatTime(t) {
   if (!t) return ''
   return new Date(t + 'Z').toLocaleString('zh-CN')
+}
+
+function confirmDelete(task) {
+  deleting.value = task
+}
+
+async function doDelete() {
+  if (!deleting.value) return
+  const task = deleting.value
+  try {
+    await deleteTask(task.id)
+    tasks.value = tasks.value.filter(t => t.id !== task.id)
+  } catch (e) {
+    alert('删除失败: ' + (e.message || '未知错误'))
+  } finally {
+    deleting.value = null
+  }
+}
+
+function cancelDelete() {
+  deleting.value = null
 }
 </script>
 
@@ -231,6 +267,15 @@ function formatTime(t) {
   background: #f8fafc;
 }
 
+.task-name {
+  font-size: 0.9rem;
+  color: #1e293b;
+  max-width: 240px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .mono {
   font-family: monospace;
   font-size: 0.85rem;
@@ -265,7 +310,43 @@ function formatTime(t) {
   color: #4f46e5;
   text-decoration: none;
   font-size: 0.85rem;
+  margin-right: 8px;
 }
+
+.actions {
+  white-space: nowrap;
+}
+
+.btn-del {
+  background: none;
+  border: 1px solid #e2e8f0;
+  border-radius: 4px;
+  padding: 2px 6px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  opacity: 0.5;
+  transition: opacity 0.15s;
+}
+.btn-del:hover { opacity: 1; border-color: #dc2626; }
+
+/* 删除确认弹窗 */
+.modal-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.4);
+  display: flex; align-items: center; justify-content: center; z-index: 1000;
+}
+.modal-box {
+  background: #fff; border-radius: 12px; padding: 24px;
+  max-width: 400px; width: 90%; box-shadow: 0 8px 30px rgba(0,0,0,0.15);
+}
+.modal-box h3 { margin: 0 0 12px; font-size: 1.1rem; color: #1e293b; }
+.modal-box p { margin: 0 0 8px; color: #64748b; font-size: 0.9rem; }
+.modal-hint { color: #94a3b8 !important; font-size: 0.8rem !important; }
+.modal-actions { display: flex; gap: 12px; justify-content: flex-end; margin-top: 16px; }
+.btn-cancel, .btn-danger {
+  padding: 8px 20px; border-radius: 6px; font-size: 0.9rem; border: none; cursor: pointer;
+}
+.btn-cancel { background: #f1f5f9; color: #334155; }
+.btn-danger { background: #dc2626; color: #fff; }
 
 .empty {
   padding: 40px;

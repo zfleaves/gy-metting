@@ -74,6 +74,7 @@ class Task(Base):
     __tablename__ = "tasks"
 
     id = Column(String(32), primary_key=True, default=_new_id)
+    name = Column(String(200), nullable=True)  # 任务名称（默认取上传文件名）
     type = Column(Enum(TaskType), nullable=False, index=True)
     status = Column(Enum(TaskStatus), nullable=False, default=TaskStatus.PENDING, index=True)
 

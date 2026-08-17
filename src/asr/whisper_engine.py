@@ -7,7 +7,7 @@ Faster-Whisper 引擎实现 (DESIGN.md §3.1.1)
 
 import os
 from pathlib import Path
-from typing import Optional
+from typing import Callable, Optional
 
 from src.asr.base import ASRError, ASRResult, ASRSegment, BaseASREngine
 from src.config import get_config
@@ -120,12 +120,13 @@ class WhisperEngine(BaseASREngine):
 
         logger.info("Faster-Whisper 模型加载完成")
 
-    def transcribe(self, audio_path: str) -> ASRResult:
+    def transcribe(self, audio_path: str, progress_callback: Optional[Callable[[float], None]] = None) -> ASRResult:
         """
         转写音频文件。
 
         Args:
             audio_path: 音频文件路径
+            progress_callback: 进度回调，参数为 0.0~1.0 的进度值
 
         Returns:
             ASRResult: 转写结果
@@ -161,7 +162,8 @@ class WhisperEngine(BaseASREngine):
             replace_map = config.asr_word_replace_map
             segments = []
             full_text_parts = []
-            for seg in segments_iter:
+            total_duration = info.duration if hasattr(info, 'duration') and info.duration > 0 else 0.0
+            for idx, seg in enumerate(segments_iter):
                 text = _to_simplified(seg.text.strip())
                 text = _apply_word_replace(text, replace_map)
                 segments.append(ASRSegment(
@@ -170,6 +172,12 @@ class WhisperEngine(BaseASREngine):
                     text=text,
                 ))
                 full_text_parts.append(text)
+
+                # 每 5 段回报一次进度（映射到 0.20 ~ 0.85 区间）
+                if progress_callback and total_duration > 0 and idx % 5 == 0:
+                    raw_pct = min(seg.end / total_duration, 1.0)
+                    mapped = 0.20 + raw_pct * 0.65  # 0.20 → 0.85
+                    progress_callback(mapped)
 
         # 加标点断句
         segments = _add_punctuation(segments)

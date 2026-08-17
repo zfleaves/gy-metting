@@ -8,7 +8,7 @@ ASR 引擎抽象层 (DESIGN.md §3.1.1)
 
 import abc
 from dataclasses import dataclass, field
-from typing import List, Optional
+from typing import Callable, List, Optional
 
 
 @dataclass
@@ -33,12 +33,13 @@ class BaseASREngine(abc.ABC):
     """ASR 引擎抽象基类"""
 
     @abc.abstractmethod
-    def transcribe(self, audio_path: str) -> ASRResult:
+    def transcribe(self, audio_path: str, progress_callback: Optional[Callable[[float], None]] = None) -> ASRResult:
         """
         转写音频文件为文本。
 
         Args:
             audio_path: 音频文件路径（mp3/wav/m4a）
+            progress_callback: 进度回调，参数为 0.0~1.0 的进度值
 
         Returns:
             ASRResult: 包含完整文本和分段时间戳

@@ -71,6 +71,19 @@ def get_db() -> Generator[Session, None, None]:
 
 
 def init_db() -> None:
-    """初始化数据库：创建所有表"""
+    """初始化数据库：创建所有表 + 迁移"""
     import src.storage.models  # noqa: F401 — 确保模型注册
     Base.metadata.create_all(bind=engine)
+
+    # 迁移：为已有数据库添加新列
+    from sqlalchemy import text
+    migrations = [
+        "ALTER TABLE tasks ADD COLUMN name VARCHAR(200)",
+    ]
+    with engine.connect() as conn:
+        for sql in migrations:
+            try:
+                conn.execute(text(sql))
+                conn.commit()
+            except Exception:
+                pass  # 列已存在，跳过
