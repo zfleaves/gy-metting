@@ -90,10 +90,11 @@ data/
 
 ## 当前项目状态
 
-- **阶段**：M1-M2 已完成（2026-08-17），M3 AI 纪要待开始
-- **现有资产**：`DESIGN.md`（V1.2 唯一权威设计文档）、`PROJECT-PLAN.md`（更新至 M2 完成）、`DESIGN-REPORT.html`（可视化预览）、`.env`（配置模板）、语雀拉取脚本（从 chongya-miniapp 复用）
+- **阶段**：M1-M2 已完成（2026-08-17），M3 预置条件（LLM 来源管理）已完成，M3 AI 纪要待开始
+- **现有资产**：`DESIGN.md`（V1.2 唯一权威设计文档）、`PROJECT-PLAN.md`（更新至 LLM 来源管理）、`DESIGN-REPORT.html`（可视化预览）、`.env`（配置模板）、语雀拉取脚本（从 chongya-miniapp 复用）
 - **M1 完成**：FastAPI 后端 + ASR（Faster-Whisper）+ 任务队列 + 前端 Vue3 骨架 + 音频上传/转写展示 + 登录/注册 + 用户管理
 - **M2 完成**：文档解析（docx/pdf/txt/md）+ 语雀来源管理 + 需求号拉取 + 拉取记录 + 会议管理（创建/编辑/关联文档）+ 左右分栏文档预览（含图片代理）+ 工作台/上传页/任务详情关联会议
+- **M3 预置**：LLM 来源管理（多提供商 CRUD + 激活切换 + 密码脱敏）
 - **M2 核心页面**：
   - `/yuque-pull` — 语雀来源管理 + 需求拉取
   - `/yuque-records` — 拉取记录列表
@@ -103,6 +104,7 @@ data/
   - `/` — 工作台（关联会议展示/更换）
   - `/upload` — 音频上传（关联会议选择）
   - `/task/:id` — 任务详情（关联会议展示）
+  - `/llm-sources` — LLM 来源管理（多提供商配置 + 激活切换）
 - **Skill**：`.claude/skills/gy-meeting-yuque-pull/SKILL.md` — 语雀文档拉取自动化流程
 - **本地配置**：`.claude/settings.local.json` — pip install / python 等命令权限
 - **启动方式**：`python main.py`，后端直接 serve 前端（`http://localhost:8000`），无需单独启动 Vite
