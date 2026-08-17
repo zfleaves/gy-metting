@@ -32,6 +32,9 @@
           <router-link to="/yuque-records" class="nav-item">
             <span class="nav-icon">📋</span> 拉取记录
           </router-link>
+          <router-link to="/llm-sources" class="nav-item">
+            <span class="nav-icon">🤖</span> LLM 来源
+          </router-link>
           <router-link v-if="isAdmin" to="/users" class="nav-item">
             <span class="nav-icon">👥</span> 用户管理
           </router-link>

@@ -52,6 +52,11 @@ const routes = [
     name: 'MeetingDetail',
     component: () => import('../views/MeetingDetail.vue'),
   },
+  {
+    path: '/llm-sources',
+    name: 'LlmSources',
+    component: () => import('../views/LlmSources.vue'),
+  },
 ]
 
 const router = createRouter({

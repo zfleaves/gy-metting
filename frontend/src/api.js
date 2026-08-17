@@ -323,3 +323,33 @@ export function deleteYuqueRecord(id) {
 export function rePullYuqueRecord(id) {
   return request(`/api/yuque-records/${id}/re-pull`, { method: 'POST' })
 }
+
+// ============================================================
+// LLM 来源
+// ============================================================
+
+export function listLlmSources() {
+  return request('/api/llm-sources')
+}
+
+export function createLlmSource(data) {
+  return request('/api/llm-sources', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  })
+}
+
+export function updateLlmSource(id, data) {
+  return request(`/api/llm-sources/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  })
+}
+
+export function deleteLlmSource(id) {
+  return request(`/api/llm-sources/${id}`, { method: 'DELETE' })
+}
+
+export function activateLlmSource(id) {
+  return request(`/api/llm-sources/${id}/activate`, { method: 'POST' })
+}

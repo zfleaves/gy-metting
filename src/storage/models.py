@@ -219,3 +219,26 @@ class YuquePullRecord(Base):
     status = Column(String(20), default="success")  # success / partial / failed
     created_at = Column(DateTime, nullable=False, default=_utcnow)
     updated_at = Column(DateTime, nullable=False, default=_utcnow, onupdate=_utcnow)
+
+
+# ============================================================
+# LLM 来源模型
+# ============================================================
+
+class LlmSource(Base):
+    """LLM 来源配置 — 用户级，不同 API Key 对应不同模型"""
+
+    __tablename__ = "llm_sources"
+
+    id = Column(String(32), primary_key=True, default=_new_id)
+    user_id = Column(String(32), ForeignKey("users.id"), nullable=False, index=True)
+    name = Column(String(100), nullable=False)  # 来源名称，如"DeepSeek 主力"
+    provider = Column(String(50), nullable=False, default="openai")  # openai / deepseek / qwen / glm
+    base_url = Column(String(500), nullable=False)  # API 地址
+    api_key = Column(String(500), nullable=False)  # API Key
+    model = Column(String(100), nullable=False)  # 模型名
+    temperature = Column(String(10), nullable=True, default="0.3")  # 温度
+    max_tokens = Column(String(10), nullable=True, default="4096")  # 最大 token
+    is_active = Column(String(5), default="0")  # 是否当前激活: 1 激活, 0 未激活
+    created_at = Column(DateTime, nullable=False, default=_utcnow)
+    updated_at = Column(DateTime, nullable=False, default=_utcnow, onupdate=_utcnow)
