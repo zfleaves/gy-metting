@@ -367,7 +367,6 @@ function formatTime(t) {
 <style scoped>
 .yuque-page {
   padding: 24px;
-  max-width: 1100px;
 }
 
 .page-header {

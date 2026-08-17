@@ -450,7 +450,6 @@ async function autoHighlight() {
 <style scoped>
 .task-page {
   padding: 24px;
-  max-width: 960px;
 }
 
 .page-header {

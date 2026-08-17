@@ -249,7 +249,6 @@ onUnmounted(() => {
 <style scoped>
 .upload-page {
   padding: 24px;
-  max-width: 720px;
 }
 
 .meeting-selector {

@@ -123,7 +123,6 @@ function formatTime(t) {
 <style scoped>
 .users-page {
   padding: 24px;
-  max-width: 720px;
 }
 
 .page-header {
