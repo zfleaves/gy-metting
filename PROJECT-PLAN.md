@@ -10,7 +10,7 @@
 |------|---------|---------|---------|------|
 | [准备阶段](#准备阶段) | 工程骨架 | — | — | ✅ 完成 |
 | [M1 基础能力](#m1-基础能力) | FastAPI + ASR + 任务队列 | 前端骨架 + 音频上传页 | 4-6 天 | ✅ 完成 (2026-08-17) |
-| [M2 参考文档](#m2-参考文档) | 文档解析 + 语雀拉取 | 文档上传/语雀链接页 | 4-6 天 | ⬜ 待开始 |
+| [M2 参考文档](#m2-参考文档) | 文档解析 + 语雀拉取 | 文档上传/语雀链接页 | 4-6 天 | 🔄 进行中 (2026-08-17) |
 | [M3 AI 纪要](#m3-ai-纪要) | LLM 适配器 + 纪要生成 | 纪要结果展示页 | 4-6 天 | ⬜ 待开始 |
 | [M4 输出与存储](#m4-输出与存储) | 钉钉推送 + 存储 + 查询 | 历史列表 + 搜索 | 3-4 天 | ⬜ 待开始 |
 | [M5 收尾打磨](#m5-收尾打磨) | 健康检查 + 日志完善 | 交互优化 + 错误处理 | 2-3 天 | ⬜ 待开始 |
@@ -71,23 +71,27 @@
 
 ### 后端
 
-- [ ] 文档解析统一接口（`src/doc/parser.py`，`parse(file) → str`）
-- [ ] 本地文档解析器 — docx（`python-docx`）
-- [ ] 本地文档解析器 — pdf（`PyMuPDF`，含扫描件检测）
-- [ ] 本地文档解析器 — txt/md（直接读取）
-- [ ] 语雀拉取集成（`src/doc/yuque.py`，调用 `scripts/yuque_pull.py`）
-- [ ] 文档快照存储（`src/doc/snapshot.py`，DESIGN.md §3.2.1）
-- [ ] 文档上传 API（`POST /api/upload/doc`）
-- [ ] 语雀拉取 API（`POST /api/yuque/pull`）
-- [ ] 文档快照查询 API（`GET /api/snapshots/{id}`）
+- [x] 文档解析统一接口（`src/doc/parser.py`，`parse(file) → str`）
+- [x] 本地文档解析器 — docx（`python-docx`）
+- [x] 本地文档解析器 — pdf（`PyMuPDF`，含扫描件检测）
+- [x] 本地文档解析器 — txt/md（直接读取）
+- [x] 语雀拉取集成（`src/doc/yuque.py`，调用 `scripts/yuque_pull.py`）
+- [x] 文档快照存储（`src/doc/snapshot.py`，DESIGN.md §3.2.1）
+- [x] 文档上传 API（`POST /api/documents/upload`）
+- [x] 语雀拉取 API（`POST /api/documents/yuque`）
+- [x] 文档快照查询 API（`GET /api/documents`）
+- [x] 语雀来源管理（`src/api/yuque_source.py`，用户级多来源配置）
+- [x] 需求号拉取（`POST /api/yuque-sources/{id}/pull`，TOC 搜索 + 递归拉取）
+- [x] 会议 API（`src/api/meetings.py`，业务背景录入）
 - [ ] 单元测试：各格式解析、扫描件检测、快照读写
 
 ### 前端（同步）
 
-- [ ] 文档上传组件（拖拽上传，支持 docx/pdf/txt/md）
-- [ ] 语雀链接输入组件（输入 URL → 拉取进度 → 预览）
-- [ ] 文档预览页（Markdown 渲染解析结果）
-- [ ] 快照列表（已拉取/上传的文档列表）
+- [x] 文档上传组件（拖拽上传，支持 docx/pdf/txt/md）
+- [x] 语雀来源管理 + 需求号拉取（独立页面，选择来源 → 输入需求号 → 拉取所有关联文档）
+- [x] 文档预览页（Markdown 渲染解析结果）
+- [x] 快照列表（已拉取/上传的文档列表）
+- [x] 业务背景录入（会议背景文本框）
 
 ### 验收标准
 

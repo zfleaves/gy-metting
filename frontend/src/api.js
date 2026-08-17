@@ -185,3 +185,111 @@ export function listTasks({ status, task_type, limit = 20, offset = 0 } = {}) {
 export function healthCheck() {
   return request('/health')
 }
+
+// ============================================================
+// 参考文档
+// ============================================================
+
+// 上传文档
+export function uploadDocument(file) {
+  const form = new FormData()
+  form.append('file', file)
+  const token = getToken()
+  const headers = {}
+  if (token) headers['Authorization'] = `Bearer ${token}`
+  return fetch(`${BASE_URL}/api/documents/upload`, {
+    method: 'POST',
+    body: form,
+    headers,
+  }).then(r => {
+    if (r.status === 401) { clearToken(); window.location.href = '/login'; throw new Error('未登录') }
+    return r.json()
+  })
+}
+
+// 语雀拉取
+export function pullYuque(url, sourceId) {
+  return request('/api/documents/yuque', {
+    method: 'POST',
+    body: JSON.stringify({ url, source_id: sourceId || null }),
+  })
+}
+
+// 文档列表
+export function listDocuments() {
+  return request('/api/documents')
+}
+
+// 文档详情
+export function getDocument(id) {
+  return request(`/api/documents/${id}`)
+}
+
+// 删除文档
+export function deleteDocument(id) {
+  return request(`/api/documents/${id}`, { method: 'DELETE' })
+}
+
+// ============================================================
+// 会议 & 业务背景
+// ============================================================
+
+// 创建会议
+export function createMeeting(data) {
+  return request('/api/meetings', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  })
+}
+
+// 更新会议
+export function updateMeeting(id, data) {
+  return request(`/api/meetings/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  })
+}
+
+// 会议列表
+export function listMeetings() {
+  return request('/api/meetings')
+}
+
+// 会议详情
+export function getMeeting(id) {
+  return request(`/api/meetings/${id}`)
+}
+
+// ============================================================
+// 语雀来源
+// ============================================================
+
+export function listYuqueSources() {
+  return request('/api/yuque-sources')
+}
+
+export function createYuqueSource(data) {
+  return request('/api/yuque-sources', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  })
+}
+
+export function updateYuqueSource(id, data) {
+  return request(`/api/yuque-sources/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  })
+}
+
+export function deleteYuqueSource(id) {
+  return request(`/api/yuque-sources/${id}`, { method: 'DELETE' })
+}
+
+// 拉取需求（通过来源 ID + 需求号）
+export function pullYuqueRequirement(sourceId, requirementId) {
+  return request(`/api/yuque-sources/${sourceId}/pull`, {
+    method: 'POST',
+    body: JSON.stringify({ requirement_id: requirementId }),
+  })
+}

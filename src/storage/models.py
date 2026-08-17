@@ -173,3 +173,25 @@ class Snapshot(Base):
     size_bytes = Column(Integer, nullable=True)
 
     created_at = Column(DateTime, nullable=False, default=_utcnow, index=True)
+
+
+# ============================================================
+# 语雀来源模型
+# ============================================================
+
+class YuqueSource(Base):
+    """语雀来源配置 — 用户级，不同 token 对应不同知识库"""
+
+    __tablename__ = "yuque_sources"
+
+    id = Column(String(32), primary_key=True, default=_new_id)
+    user_id = Column(String(32), ForeignKey("users.id"), nullable=False, index=True)
+    name = Column(String(100), nullable=False)  # 来源名称，如"冲鸭"
+    yuque_url = Column(String(500), nullable=False)  # 知识库 URL
+    token = Column(String(200), nullable=False)  # 语雀 API Token
+    session = Column(String(200), nullable=True)  # _yuque_session Cookie
+    ctoken = Column(String(200), nullable=True)   # yuque_ctoken Cookie
+    exclude = Column(Text, nullable=True)  # 排除关键词 JSON 数组
+    attachment_types = Column(Text, nullable=True)  # 附件类型 JSON 数组
+    embed_types = Column(Text, nullable=True)  # 嵌入类型 JSON 数组
+    created_at = Column(DateTime, nullable=False, default=_utcnow)

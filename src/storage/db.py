@@ -79,6 +79,11 @@ def init_db() -> None:
     from sqlalchemy import text
     migrations = [
         "ALTER TABLE tasks ADD COLUMN name VARCHAR(200)",
+        "CREATE TABLE IF NOT EXISTS yuque_sources (id VARCHAR(32) PRIMARY KEY, user_id VARCHAR(32) NOT NULL, name VARCHAR(100) NOT NULL, yuque_url VARCHAR(500) NOT NULL, token VARCHAR(200) NOT NULL, session VARCHAR(200), ctoken VARCHAR(200), exclude TEXT, attachment_types TEXT, embed_types TEXT, created_at DATETIME NOT NULL, FOREIGN KEY(user_id) REFERENCES users(id))",
+        "ALTER TABLE yuque_sources ADD COLUMN yuque_url VARCHAR(500)",
+        "ALTER TABLE yuque_sources ADD COLUMN exclude TEXT",
+        "ALTER TABLE yuque_sources ADD COLUMN attachment_types TEXT",
+        "ALTER TABLE yuque_sources ADD COLUMN embed_types TEXT",
     ]
     with engine.connect() as conn:
         for sql in migrations:

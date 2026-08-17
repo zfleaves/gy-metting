@@ -27,6 +27,16 @@ const routes = [
     name: 'Users',
     component: () => import('../views/Users.vue'),
   },
+  {
+    path: '/documents',
+    name: 'Documents',
+    component: () => import('../views/Documents.vue'),
+  },
+  {
+    path: '/yuque-pull',
+    name: 'YuquePull',
+    component: () => import('../views/YuquePull.vue'),
+  },
 ]
 
 const router = createRouter({

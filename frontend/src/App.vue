@@ -19,6 +19,12 @@
           <router-link to="/upload" class="nav-item">
             <span class="nav-icon">🎙️</span> 音频转写
           </router-link>
+          <router-link to="/documents" class="nav-item">
+            <span class="nav-icon">📄</span> 参考文档
+          </router-link>
+          <router-link to="/yuque-pull" class="nav-item">
+            <span class="nav-icon">🦜</span> 语雀拉取
+          </router-link>
           <router-link v-if="isAdmin" to="/users" class="nav-item">
             <span class="nav-icon">👥</span> 用户管理
           </router-link>

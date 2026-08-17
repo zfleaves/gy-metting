@@ -8,8 +8,11 @@ from fastapi import APIRouter
 
 from src.api.audio import router as audio_router
 from src.api.auth import router as auth_router, user_router
+from src.api.documents import router as documents_router
+from src.api.meetings import router as meetings_router
 from src.api.tasks import router as task_router
 from src.api.upload import router as upload_router
+from src.api.yuque_source import router as yuque_source_router
 
 router = APIRouter()
 
@@ -18,3 +21,6 @@ router.include_router(task_router)
 router.include_router(audio_router)
 router.include_router(auth_router)
 router.include_router(user_router)
+router.include_router(documents_router)
+router.include_router(meetings_router)
+router.include_router(yuque_source_router)
