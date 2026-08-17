@@ -195,3 +195,27 @@ class YuqueSource(Base):
     attachment_types = Column(Text, nullable=True)  # 附件类型 JSON 数组
     embed_types = Column(Text, nullable=True)  # 嵌入类型 JSON 数组
     created_at = Column(DateTime, nullable=False, default=_utcnow)
+
+
+# ============================================================
+# 语雀拉取记录模型
+# ============================================================
+
+class YuquePullRecord(Base):
+    """语雀拉取记录 — 每次拉取需求的操作记录"""
+
+    __tablename__ = "yuque_pull_records"
+
+    id = Column(String(32), primary_key=True, default=_new_id)
+    user_id = Column(String(32), ForeignKey("users.id"), nullable=False, index=True)
+    source_id = Column(String(32), ForeignKey("yuque_sources.id"), nullable=False)
+    source_name = Column(String(100), nullable=False)  # 来源名称（冗余，方便列表展示）
+    requirement_id = Column(String(100), nullable=False, index=True)  # 需求号
+    matched_title = Column(String(200), nullable=True)  # 匹配的 TITLE 节点名
+    total = Column(Integer, default=0)  # 总文档数
+    success = Column(Integer, default=0)  # 成功数
+    failed = Column(Integer, default=0)  # 失败数
+    results_json = Column(Text, nullable=True)  # 结果 JSON 字符串
+    status = Column(String(20), default="success")  # success / partial / failed
+    created_at = Column(DateTime, nullable=False, default=_utcnow)
+    updated_at = Column(DateTime, nullable=False, default=_utcnow, onupdate=_utcnow)

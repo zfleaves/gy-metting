@@ -138,3 +138,18 @@ async def update_meeting(meeting_id: str, body: MeetingUpdate):
         return {"updated": True, "id": meeting_id}
     finally:
         db.close()
+
+
+@router.delete("/{meeting_id}")
+async def delete_meeting(meeting_id: str):
+    """删除会议"""
+    db = SessionLocal()
+    try:
+        m = db.query(Meeting).filter(Meeting.id == meeting_id).first()
+        if not m:
+            raise HTTPException(status_code=404, detail="会议不存在")
+        db.delete(m)
+        db.commit()
+        return {"deleted": True, "id": meeting_id}
+    finally:
+        db.close()

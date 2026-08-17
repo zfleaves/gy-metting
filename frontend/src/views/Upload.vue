@@ -5,6 +5,17 @@
       <p>支持 mp3、wav、m4a 格式，最大 200MB</p>
     </div>
 
+    <!-- 关联会议选择 -->
+    <div class="meeting-selector">
+      <label>关联会议/需求</label>
+      <select v-model="selectedMeetingId" class="meeting-select">
+        <option value="">-- 不关联 --</option>
+        <option v-for="m in meetings" :key="m.id" :value="m.id">
+          {{ m.title }}（{{ m.snapshot_ids?.length || 0 }} 个文档）
+        </option>
+      </select>
+    </div>
+
     <div class="upload-zone"
       :class="{ dragging, uploaded: !!uploadResult }"
       @dragover.prevent="dragging = true"
@@ -29,6 +40,9 @@
       <div v-if="uploadResult" class="upload-success">
         <div class="check-icon">✓</div>
         <p>上传成功 <span style="color:#4f46e5;font-size:0.75rem;">[v3]</span></p>
+        <div v-if="selectedMeetingId && selectedMeetingName" class="meeting-tag">
+          📋 关联会议：{{ selectedMeetingName }}
+        </div>
         <div class="file-info">
           <span>{{ uploadResult.filename }}</span>
           <span>{{ (uploadResult.size_bytes / 1024).toFixed(1) }} KB</span>
@@ -86,8 +100,8 @@
 </template>
 
 <script setup>
-import { ref, computed, onUnmounted } from 'vue'
-import { uploadAudio, submitTask, getTask } from '../api.js'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { uploadAudio, submitTask, getTask, listMeetings } from '../api.js'
 
 const fileInput = ref(null)
 const dragging = ref(false)
@@ -100,6 +114,12 @@ const taskProgress = ref(0)
 const taskError = ref('')
 const pollingCount = ref(0)
 const error = ref('')
+const meetings = ref([])
+const selectedMeetingId = ref('')
+const selectedMeetingName = computed(() => {
+  const m = meetings.value.find(m => m.id === selectedMeetingId.value)
+  return m ? m.title : ''
+})
 let timer = null
 
 // 用 computed 统一管理视图状态，避免多个 v-if 条件冲突
@@ -115,6 +135,10 @@ function onDrop(e) {
   const file = e.dataTransfer.files[0]
   if (file) processFile(file)
 }
+
+onMounted(async () => {
+  try { meetings.value = await listMeetings() } catch { /* ignore */ }
+})
 
 function onFileSelect(e) {
   const file = e.target.files[0]
@@ -150,7 +174,7 @@ async function startTranscribe() {
   error.value = ''
   try {
     // 1. 提交任务 → 后端立刻返回 task_id（不等转写完成）
-    const result = await submitTask('asr', { audio_path: uploadResult.value.path }, uploadResult.value.filename)
+    const result = await submitTask('asr', { audio_path: uploadResult.value.path, meeting_id: selectedMeetingId.value || undefined }, uploadResult.value.filename)
     // 2. 拿到 task_id 后立刻更新界面，显示进度条
     taskId.value = result.task_id
     taskStatus.value = 'pending'
@@ -226,6 +250,36 @@ onUnmounted(() => {
 .upload-page {
   padding: 24px;
   max-width: 720px;
+}
+
+.meeting-selector {
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.meeting-selector label {
+  font-size: 0.85rem;
+  color: #64748b;
+  white-space: nowrap;
+}
+.meeting-select {
+  flex: 1;
+  padding: 8px 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  outline: none;
+  background: #fff;
+  max-width: 400px;
+}
+.meeting-select:focus {
+  border-color: #4f46e5;
+}
+.meeting-tag {
+  display: inline-block; margin-top: 8px; padding: 4px 12px;
+  background: #eef2ff; color: #4f46e5; border-radius: 6px;
+  font-size: 0.82rem;
 }
 
 .page-header { margin-bottom: 24px; }

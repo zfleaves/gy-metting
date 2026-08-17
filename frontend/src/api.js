@@ -137,6 +137,14 @@ export function deleteTask(taskId) {
   return request(`/api/tasks/${taskId}`, { method: 'DELETE' })
 }
 
+// 更新任务关联会议
+export function updateTaskMeeting(taskId, meetingId) {
+  return request(`/api/tasks/${taskId}/meeting`, {
+    method: 'PATCH',
+    body: JSON.stringify({ meeting_id: meetingId }),
+  })
+}
+
 // 获取分段数据
 export function getTaskSegments(taskId) {
   return request(`/api/tasks/${taskId}/segments`)
@@ -260,6 +268,11 @@ export function getMeeting(id) {
   return request(`/api/meetings/${id}`)
 }
 
+// 删除会议
+export function deleteMeeting(id) {
+  return request(`/api/meetings/${id}`, { method: 'DELETE' })
+}
+
 // ============================================================
 // 语雀来源
 // ============================================================
@@ -292,4 +305,21 @@ export function pullYuqueRequirement(sourceId, requirementId) {
     method: 'POST',
     body: JSON.stringify({ requirement_id: requirementId }),
   })
+}
+
+// 拉取记录
+export function listYuqueRecords() {
+  return request('/api/yuque-records')
+}
+
+export function getYuqueRecord(id) {
+  return request(`/api/yuque-records/${id}`)
+}
+
+export function deleteYuqueRecord(id) {
+  return request(`/api/yuque-records/${id}`, { method: 'DELETE' })
+}
+
+export function rePullYuqueRecord(id) {
+  return request(`/api/yuque-records/${id}/re-pull`, { method: 'POST' })
 }

@@ -13,6 +13,8 @@ from src.api.meetings import router as meetings_router
 from src.api.tasks import router as task_router
 from src.api.upload import router as upload_router
 from src.api.yuque_source import router as yuque_source_router
+from src.api.yuque_records import router as yuque_records_router
+from src.api.yuque_image_proxy import router as yuque_image_proxy_router
 
 router = APIRouter()
 
@@ -24,3 +26,5 @@ router.include_router(user_router)
 router.include_router(documents_router)
 router.include_router(meetings_router)
 router.include_router(yuque_source_router)
+router.include_router(yuque_records_router)
+router.include_router(yuque_image_proxy_router)

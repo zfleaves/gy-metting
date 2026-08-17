@@ -37,6 +37,21 @@ const routes = [
     name: 'YuquePull',
     component: () => import('../views/YuquePull.vue'),
   },
+  {
+    path: '/yuque-records',
+    name: 'YuqueRecords',
+    component: () => import('../views/PullRecords.vue'),
+  },
+  {
+    path: '/yuque-records/:id',
+    name: 'YuqueRecordDetail',
+    component: () => import('../views/PullRecordDetail.vue'),
+  },
+  {
+    path: '/meeting/:id',
+    name: 'MeetingDetail',
+    component: () => import('../views/MeetingDetail.vue'),
+  },
 ]
 
 const router = createRouter({

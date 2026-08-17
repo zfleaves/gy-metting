@@ -23,6 +23,7 @@
           <div><span class="label">类型</span> {{ task.type }}</div>
           <div v-if="task.created_at"><span class="label">创建时间</span> {{ formatTime(task.created_at) }}</div>
           <div v-if="task.completed_at"><span class="label">完成时间</span> {{ formatTime(task.completed_at) }}</div>
+          <div v-if="task.meeting_id && associatedMeeting"><span class="label">关联会议</span> {{ associatedMeeting.title }}</div>
         </div>
 
         <div v-if="task.status === 'processing'" class="progress-section">
@@ -146,7 +147,7 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
-import { getTask, getTaskSegments, getHighlights, saveHighlights, addCorrection, addFluff } from '../api.js'
+import { getTask, getTaskSegments, getHighlights, saveHighlights, addCorrection, addFluff, getMeeting } from '../api.js'
 
 const route = useRoute()
 const task = ref(null)
@@ -157,6 +158,7 @@ const hideTrivial = ref(true)     // 开关：折叠旁支末节
 const ignoreKeywords = ref([])
 const viewMode = ref('segments')  // 'segments' | 'fulltext'
 const loading = ref(true)
+const associatedMeeting = ref(null)
 const pollingCount = ref(0)
 let timer = null
 
@@ -264,6 +266,12 @@ function onTimeUpdate() {
 async function fetchTask() {
   try {
     task.value = await getTask(route.params.id)
+    // 加载关联会议
+    if (task.value.meeting_id) {
+      try {
+        associatedMeeting.value = await getMeeting(task.value.meeting_id)
+      } catch { /* ignore */ }
+    }
     // 任务完成后加载分段
     if (task.value.status === 'completed') {
       try {

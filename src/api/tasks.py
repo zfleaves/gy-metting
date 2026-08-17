@@ -244,6 +244,32 @@ async def get_task(request: Request, task_id: str):
     return task
 
 
+@router.patch("/{task_id}/meeting")
+async def update_task_meeting(request: Request, task_id: str, body: dict):
+    """更新任务关联的会议 ID"""
+    from src.storage.db import SessionLocal
+    from src.storage.models import Task
+
+    meeting_id = body.get("meeting_id")
+    db = SessionLocal()
+    try:
+        task = db.query(Task).filter(Task.id == task_id).first()
+        if not task:
+            raise HTTPException(status_code=404, detail=f"任务不存在: {task_id}")
+
+        # 权限检查
+        user = getattr(request.state, "user", None)
+        if user and user["role"] not in ("super_admin", "admin"):
+            if task.user_id and task.user_id != user["user_id"]:
+                raise HTTPException(status_code=403, detail="无权修改此任务")
+
+        task.meeting_id = meeting_id
+        db.commit()
+        return {"updated": True, "id": task_id, "meeting_id": meeting_id}
+    finally:
+        db.close()
+
+
 @router.delete("/{task_id}")
 async def delete_task(request: Request, task_id: str):
     """删除任务及其关联数据（音频、转写结果等）"""

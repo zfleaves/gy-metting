@@ -1,5 +1,9 @@
 <template>
-  <div id="app" :class="{ 'logged-in': currentUser, 'logged-out': !currentUser }">
+  <div id="app" :class="{
+  'logged-in': currentUser,
+  'logged-out': !currentUser,
+  'detail-view': route.path.startsWith('/yuque-records/') || route.path.startsWith('/meeting/')
+}">
     <!-- 登录页不显示布局 -->
     <template v-if="!currentUser">
       <router-view />
@@ -25,6 +29,9 @@
           <router-link to="/yuque-pull" class="nav-item">
             <span class="nav-icon">🦜</span> 语雀拉取
           </router-link>
+          <router-link to="/yuque-records" class="nav-item">
+            <span class="nav-icon">📋</span> 拉取记录
+          </router-link>
           <router-link v-if="isAdmin" to="/users" class="nav-item">
             <span class="nav-icon">👥</span> 用户管理
           </router-link>
@@ -42,7 +49,7 @@
           </button>
         </div>
       </aside>
-      <main class="main-content">
+      <main class="main-content" :class="{ 'no-scroll': route.path.startsWith('/yuque-records/') || route.path.startsWith('/meeting/') }">
         <router-view />
       </main>
     </template>
@@ -84,6 +91,9 @@ function doLogout() {
 
 #app.logged-in {
   display: flex;
+}
+#app.detail-view.logged-in {
+  height: 100vh;
 }
 
 #app.logged-out {
@@ -265,5 +275,8 @@ function doLogout() {
   overflow-y: auto;
   min-width: 0;
   background: #f1f5f9;
+}
+.main-content.no-scroll {
+  overflow: hidden;
 }
 </style>
