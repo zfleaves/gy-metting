@@ -1,0 +1,83 @@
+- generic [ref=f10e3]:
+  - complementary [ref=f10e4]:
+    - generic [ref=f10e5]:
+      - heading "gy-meeting" [level=1] [ref=f10e6]
+      - generic [ref=f10e7]: v0.2
+    - navigation [ref=f10e8]:
+      - link "📊 工作台" [ref=f10e9] [cursor=pointer]:
+        - /url: /
+        - generic [ref=f10e10]: 📊
+        - text: 工作台
+      - link "🎙️ 音频转写" [ref=f10e11] [cursor=pointer]:
+        - /url: /upload
+        - generic [ref=f10e12]: 🎙️
+        - text: 音频转写
+      - link "📄 参考文档" [ref=f10e13] [cursor=pointer]:
+        - /url: /documents
+        - generic [ref=f10e14]: 📄
+        - text: 参考文档
+      - link "🦜 语雀拉取" [ref=f10e15] [cursor=pointer]:
+        - /url: /yuque-pull
+        - generic [ref=f10e16]: 🦜
+        - text: 语雀拉取
+      - link "📋 拉取记录" [ref=f10e17] [cursor=pointer]:
+        - /url: /yuque-records
+        - generic [ref=f10e18]: 📋
+        - text: 拉取记录
+      - link "🤖 LLM 来源" [ref=f10e19] [cursor=pointer]:
+        - /url: /llm-sources
+        - generic [ref=f10e20]: 🤖
+        - text: LLM 来源
+      - link "📝 AI 纪要" [ref=f10e21] [cursor=pointer]:
+        - /url: /minutes
+        - generic [ref=f10e22]: 📝
+        - text: AI 纪要
+      - link "👥 用户管理" [ref=f10e23] [cursor=pointer]:
+        - /url: /users
+        - generic [ref=f10e24]: 👥
+        - text: 用户管理
+    - generic [ref=f10e25]:
+      - generic [ref=f10e26]:
+        - generic [ref=f10e27]: A
+        - generic [ref=f10e28]:
+          - generic [ref=f10e29]: admin
+          - generic [ref=f10e30]: 超级管理员
+      - button "🚪 退出" [ref=f10e31] [cursor=pointer]:
+        - generic [ref=f10e32]: 🚪
+        - text: 退出
+  - main [ref=f10e33]:
+    - generic [ref=f10e34]:
+      - generic [ref=f10e35]:
+        - heading "AI 纪要生成" [level=1] [ref=f10e36]
+        - paragraph [ref=f10e37]: 选择已完成转写的任务，自动关联会议背景和参考文档，流式生成 AI 纪要
+      - generic [ref=f10e38]:
+        - generic [ref=f10e39]:
+          - generic [ref=f10e40]: 选择转写任务 *
+          - combobox [ref=f10e41]:
+            - option "-- 请选择已完成转写的任务 --" [selected]
+            - option "MOPRO-1900 会员退订页文案调整.mp3 （2026/8/17 16:16:06）"
+        - generic [ref=f10e42]:
+          - generic [ref=f10e43]: 会议模板
+          - generic [ref=f10e44]:
+            - button "通用" [ref=f10e45] [cursor=pointer]
+            - button "需求评审" [ref=f10e46] [cursor=pointer]
+            - button "技术评审" [ref=f10e47] [cursor=pointer]
+            - button "周会" [ref=f10e48] [cursor=pointer]
+          - generic [ref=f10e49]:
+            - text: 通用结构化输出：会议摘要、关键决策、待办事项、风险问题
+            - button "查看提示词" [ref=f10e50] [cursor=pointer]
+        - generic [ref=f10e51]:
+          - generic [ref=f10e52]: 自定义提示词（可选，覆盖模板）
+          - textbox "留空则使用模板默认提示词..." [ref=f10e53]
+        - generic [ref=f10e54]:
+          - generic [ref=f10e55]:
+            - generic [ref=f10e56]:
+              - text: Temperature
+              - generic [ref=f10e57]: "? 控制输出随机性：0=严格确定，2=高度随机。纪要生成推荐 0.1-0.5"
+            - spinbutton [ref=f10e58]: "0.3"
+          - generic [ref=f10e59]:
+            - generic [ref=f10e60]:
+              - text: Max Tokens
+              - generic [ref=f10e61]: "? 单次生成最大 Token 数，超出后内容截断。纪要建议 4096-8192"
+            - spinbutton [ref=f10e62]: "8192"
+        - button "🚀 生成纪要" [disabled] [ref=f10e64]

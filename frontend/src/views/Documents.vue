@@ -48,113 +48,13 @@
     </div>
 
     <!-- 新建/编辑弹窗 -->
-    <div v-if="showModal" class="modal-overlay" @click.self="closeModal">
-      <div class="modal">
-        <h3>{{ editingId ? '编辑会议' : '新建会议' }}</h3>
-
-        <div class="field">
-          <label>会议标题 <span class="required">*</span></label>
-          <input v-model="form.title" type="text" placeholder="如：SCPRO-1071 需求评审" />
-        </div>
-
-        <div class="field">
-          <label>业务背景</label>
-          <textarea v-model="form.background" class="bg-input" placeholder="输入本次会议的业务背景、讨论要点、特殊要求等..." rows="4"></textarea>
-        </div>
-
-        <!-- 关联资源 -->
-        <div class="field">
-          <label>关联参考文档</label>
-          <div class="resource-tabs">
-            <button class="res-tab" :class="{ active: resTab === 'upload' }" @click="resTab = 'upload'">📤 本地上传</button>
-            <button class="res-tab" :class="{ active: resTab === 'yuque' }" @click="resTab = 'yuque'">🦜 语雀拉取</button>
-            <button class="res-tab" :class="{ active: resTab === 'records' }" @click="resTab = 'records'">📋 拉取记录</button>
-          </div>
-
-          <!-- 本地上传 -->
-          <div v-if="resTab === 'upload'" class="res-panel">
-            <div class="upload-row">
-              <input type="file" ref="fileInput" accept=".docx,.pdf,.txt,.md" @change="onFileSelect" hidden />
-              <button class="btn-upload" @click="$refs.fileInput.click()" :disabled="uploading">
-                {{ uploading ? '上传中...' : '选择文件上传' }}
-              </button>
-              <span v-if="uploadError" class="upload-error">{{ uploadError }}</span>
-            </div>
-          </div>
-
-          <!-- 语雀拉取 -->
-          <div v-if="resTab === 'yuque'" class="res-panel">
-            <div class="yuque-form">
-              <select v-model="yuqueSourceId" class="input-sm">
-                <option value="">-- 选择语雀来源 --</option>
-                <option v-for="s in yuqueSources" :key="s.id" :value="s.id">{{ s.name }}</option>
-              </select>
-              <input v-model="yuqueRequirementId" class="input-sm" placeholder="需求号，如 SCPRO-1071" />
-              <button class="btn-upload" @click="doYuquePull" :disabled="!yuqueSourceId || !yuqueRequirementId || yuquePulling">
-                {{ yuquePulling ? '拉取中...' : '拉取' }}
-              </button>
-            </div>
-            <div v-if="yuqueError" class="upload-error">{{ yuqueError }}</div>
-          </div>
-
-          <!-- 拉取记录 -->
-          <div v-if="resTab === 'records'" class="res-panel">
-            <div v-if="!pullRecords.length" class="empty-hint">暂无拉取记录，请先拉取需求</div>
-            <div
-              v-for="rec in pullRecords"
-              :key="rec.id"
-              class="record-item"
-              :class="{ selected: recordCheckState(rec) === 'all' }"
-            >
-              <div class="record-item-header" @click="toggleRecord(rec)">
-                <span class="record-arrow" :class="{ open: rec._expanded }">▶</span>
-                <span class="record-check" @click.stop="toggleAllDocs(rec)">{{ recordCheckIcon(rec) }}</span>
-                <div class="record-item-left">
-                  <strong>{{ rec.requirement_id }}</strong>
-                  <span class="source-tag">{{ rec.source_name }}</span>
-                </div>
-                <div class="record-item-right">
-                  <span class="doc-count-badge">{{ rec.success }}/{{ rec.total }} 文档</span>
-                  <span class="status-dot" :class="'dot-' + rec.status"></span>
-                </div>
-              </div>
-              <div v-if="rec._expanded" class="record-docs">
-                <div v-for="d in rec.results" :key="d.slug" class="record-doc" :class="{ selected: form.snapshot_ids.includes(d.id) }" @click.stop="toggleDocInRecord(d)">
-                  <span class="doc-check">{{ form.snapshot_ids.includes(d.id) ? '✅' : '📄' }}</span>
-                  <span class="doc-name">{{ d.title }}</span>
-                  <span v-if="d.status === 'failed'" class="doc-fail">失败</span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-        </div>
-
-        <!-- 已选文档总览 -->
-        <div v-if="selectedDocList.length" class="selected-summary">
-          <div class="summary-title">
-            已选文档（{{ selectedDocList.length }} 个）
-            <span class="summary-hint">来自各标签页的添加</span>
-          </div>
-          <div class="summary-list">
-            <div v-for="item in selectedDocList" :key="item.id" class="summary-item">
-              <span class="snap-icon">{{ item.source_type === 'yuque' ? '🦜' : '📄' }}</span>
-              <span class="snap-title">{{ item.title }}</span>
-              <button class="btn-remove" @click="removeDoc(item.id)">✕</button>
-            </div>
-          </div>
-        </div>
-
-        <div v-if="modalError" class="modal-error">{{ modalError }}</div>
-
-        <div class="modal-actions">
-          <button class="btn-cancel" @click="closeModal">取消</button>
-          <button class="btn-save" @click="saveMeeting" :disabled="saving">
-            {{ saving ? '保存中...' : '保存' }}
-          </button>
-        </div>
-      </div>
-    </div>
+    <CreateMeetingModal
+      :visible="showModal"
+      :editing-id="editingId"
+      :edit-data="editingId ? form : null"
+      @close="closeModal"
+      @saved="onMeetingSaved"
+    />
   </div>
 </template>
 
@@ -162,38 +62,21 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import {
-  listMeetings, createMeeting, updateMeeting, deleteMeeting,
-  uploadDocument, listDocuments,
-  listYuqueSources, pullYuqueRequirement, listYuqueRecords,
+  listMeetings, deleteMeeting, listYuqueRecords,
 } from '../api.js'
+import CreateMeetingModal from '../components/CreateMeetingModal.vue'
+import { toast } from '../toast.js'
 
 const router = useRouter()
 
 const meetings = ref([])
-const allSnapshots = ref([])
-const yuqueSources = ref([])
-const pullRecords = ref([])
 const loading = ref(true)
 const searchQuery = ref('')
 
 // 弹窗
 const showModal = ref(false)
 const editingId = ref(null)
-const saving = ref(false)
-const modalError = ref('')
 const form = ref({ title: '', background: '', snapshot_ids: [] })
-const resTab = ref('upload')
-
-// 上传
-const fileInput = ref(null)
-const uploading = ref(false)
-const uploadError = ref('')
-
-// 语雀拉取
-const yuqueSourceId = ref('')
-const yuqueRequirementId = ref('')
-const yuquePulling = ref(false)
-const yuqueError = ref('')
 
 const filteredMeetings = computed(() => {
   const q = searchQuery.value.trim().toLowerCase()
@@ -201,76 +84,9 @@ const filteredMeetings = computed(() => {
   return meetings.value.filter(m => m.title.toLowerCase().includes(q))
 })
 
-// 从所有已选 snapshot_ids 中收集文档信息
-const selectedDocList = computed(() => {
-  const ids = form.value.snapshot_ids
-  if (!ids.length) return []
-  // 从 allSnapshots 中查找
-  const fromSnapshots = allSnapshots.value.filter(s => ids.includes(s.id))
-  // 从拉取记录的结果中查找
-  const fromRecords = []
-  for (const rec of pullRecords.value) {
-    if (rec.results) {
-      for (const r of rec.results) {
-        if (r.id && ids.includes(r.id)) {
-          fromRecords.push({ id: r.id, title: r.title, source_type: 'yuque' })
-        }
-      }
-    }
-  }
-  // 合并去重
-  const seen = new Set()
-  return [...fromRecords, ...fromSnapshots].filter(item => {
-    if (seen.has(item.id)) return false
-    seen.add(item.id)
-    return true
-  })
-})
-
-// 拉取记录勾选状态
-function recordCheckState(rec) {
-  const okDocs = (rec.results || []).filter(d => d.status === 'ok' && d.id)
-  const selected = okDocs.filter(d => form.value.snapshot_ids.includes(d.id))
-  if (!okDocs.length || !selected.length) return 'none'
-  if (selected.length === okDocs.length) return 'all'
-  return 'half'
-}
-
-function recordCheckIcon(rec) {
-  const state = recordCheckState(rec)
-  if (state === 'all') return '✅'
-  if (state === 'half') return '☑️'
-  return '⬜'
-}
-
-function toggleAllDocs(rec) {
-  // 点击勾选框：全选/取消全选
-  const okDocs = (rec.results || []).filter(d => d.status === 'ok' && d.id)
-  const state = recordCheckState(rec)
-  if (state === 'all') {
-    // 全部已选 → 取消全部
-    for (const d of okDocs) {
-      const idx = form.value.snapshot_ids.indexOf(d.id)
-      if (idx >= 0) form.value.snapshot_ids.splice(idx, 1)
-    }
-  } else {
-    // 未选或半选 → 全选
-    for (const d of okDocs) {
-      if (!form.value.snapshot_ids.includes(d.id)) {
-        form.value.snapshot_ids.push(d.id)
-      }
-    }
-  }
-}
-
 onMounted(async () => {
   try { meetings.value = await listMeetings() } catch { /* ignore */ }
   finally { loading.value = false }
-  try { allSnapshots.value = await listDocuments() } catch { /* ignore */ }
-  try { yuqueSources.value = await listYuqueSources() } catch { /* ignore */ }
-  try {
-    pullRecords.value = (await listYuqueRecords()).map(r => ({ ...r, _expanded: false }))
-  } catch { /* ignore */ }
 })
 
 function formatTime(t) {
@@ -284,9 +100,6 @@ function goDetail(id) {
 
 function openCreateModal() {
   editingId.value = null
-  form.value = { title: '', background: '', snapshot_ids: [] }
-  resTab.value = 'upload'
-  modalError.value = ''
   showModal.value = true
 }
 
@@ -297,8 +110,6 @@ function openEditModal(m) {
     background: m.background || '',
     snapshot_ids: m.snapshot_ids || [],
   }
-  resTab.value = 'snapshots'
-  modalError.value = ''
   showModal.value = true
 }
 
@@ -307,96 +118,9 @@ function closeModal() {
   editingId.value = null
 }
 
-function toggleRecord(rec) {
-  // 点击拉取记录：展开/收起，如果已展开则收起
-  rec._expanded = !rec._expanded
-}
-
-function toggleDocInRecord(doc) {
-  // 点选/取消某个文档
-  const idx = form.value.snapshot_ids.indexOf(doc.id)
-  if (idx >= 0) {
-    form.value.snapshot_ids.splice(idx, 1)
-  } else {
-    form.value.snapshot_ids.push(doc.id)
-  }
-}
-
-function removeDoc(id) {
-  const idx = form.value.snapshot_ids.indexOf(id)
-  if (idx >= 0) form.value.snapshot_ids.splice(idx, 1)
-}
-
-async function onFileSelect(e) {
-  const file = e.target.files[0]
-  if (!file) return
-  uploadError.value = ''
-  const allowed = ['docx', 'pdf', 'txt', 'md']
-  const ext = file.name.split('.').pop().toLowerCase()
-  if (!allowed.includes(ext)) { uploadError.value = `不支持 .${ext}`; return }
-  uploading.value = true
-  try {
-    const result = await uploadDocument(file)
-    allSnapshots.value.unshift(result)
-    form.value.snapshot_ids.push(result.id)
-    // 自动切到快照 tab
-    resTab.value = 'snapshots'
-  } catch (e) {
-    uploadError.value = e.message || '上传失败'
-  } finally {
-    uploading.value = false
-  }
-}
-
-async function doYuquePull() {
-  if (!yuqueSourceId.value || !yuqueRequirementId.value.trim()) return
-  yuquePulling.value = true
-  yuqueError.value = ''
-  try {
-    const result = await pullYuqueRequirement(yuqueSourceId.value, yuqueRequirementId.value.trim())
-    // 刷新快照列表
-    allSnapshots.value = await listDocuments()
-    // 自动选中拉取的文档
-    if (result.results) {
-      for (const r of result.results) {
-        if (r.status === 'ok' && r.id && !form.value.snapshot_ids.includes(r.id)) {
-          form.value.snapshot_ids.push(r.id)
-        }
-      }
-    }
-    resTab.value = 'snapshots'
-  } catch (e) {
-    yuqueError.value = e.message || '拉取失败'
-  } finally {
-    yuquePulling.value = false
-  }
-}
-
-async function saveMeeting() {
-  modalError.value = ''
-  if (!form.value.title.trim()) {
-    modalError.value = '请输入会议标题'
-    return
-  }
-  saving.value = true
-  try {
-    const data = {
-      title: form.value.title,
-      background: form.value.background,
-      snapshot_ids: form.value.snapshot_ids,
-    }
-    if (editingId.value) {
-      await updateMeeting(editingId.value, data)
-    } else {
-      await createMeeting(data)
-    }
-    meetings.value = await listMeetings()
-    closeModal()
-  } catch (e) {
-    modalError.value = e.message || '保存失败'
-  } finally {
-    saving.value = false
-  }
+async function onMeetingSaved() {
+  meetings.value = await listMeetings()
+  closeModal()
 }
 
 async function doDelete(m) {
@@ -405,7 +129,7 @@ async function doDelete(m) {
     await deleteMeeting(m.id)
     meetings.value = meetings.value.filter(item => item.id !== m.id)
   } catch (e) {
-    alert('删除失败: ' + (e.message || '未知错误'))
+    toast.error('删除失败: ' + (e.message || '未知错误'))
   }
 }
 </script>

@@ -1,0 +1,76 @@
+- generic [ref=e3]:
+  - complementary [ref=e4]:
+    - generic [ref=e5]:
+      - heading "gy-meeting" [level=1] [ref=e6]
+      - generic [ref=e7]: v0.2
+    - navigation [ref=e8]:
+      - link "📊 工作台" [ref=e9] [cursor=pointer]:
+        - /url: /
+        - generic [ref=e10]: 📊
+        - text: 工作台
+      - link "🎙️ 音频转写" [ref=e11] [cursor=pointer]:
+        - /url: /upload
+        - generic [ref=e12]: 🎙️
+        - text: 音频转写
+      - link "📄 参考文档" [ref=e13] [cursor=pointer]:
+        - /url: /documents
+        - generic [ref=e14]: 📄
+        - text: 参考文档
+      - link "🦜 语雀拉取" [ref=e15] [cursor=pointer]:
+        - /url: /yuque-pull
+        - generic [ref=e16]: 🦜
+        - text: 语雀拉取
+      - link "📋 拉取记录" [ref=e17] [cursor=pointer]:
+        - /url: /yuque-records
+        - generic [ref=e18]: 📋
+        - text: 拉取记录
+      - link "🤖 LLM 来源" [ref=e19] [cursor=pointer]:
+        - /url: /llm-sources
+        - generic [ref=e20]: 🤖
+        - text: LLM 来源
+      - link "📝 AI 纪要" [ref=e21] [cursor=pointer]:
+        - /url: /minutes
+        - generic [ref=e22]: 📝
+        - text: AI 纪要
+      - link "👥 用户管理" [ref=e23] [cursor=pointer]:
+        - /url: /users
+        - generic [ref=e24]: 👥
+        - text: 用户管理
+    - generic [ref=e25]:
+      - generic [ref=e26]:
+        - generic [ref=e27]: A
+        - generic [ref=e28]:
+          - generic [ref=e29]: admin
+          - generic [ref=e30]: 超级管理员
+      - button "🚪 退出" [ref=e31] [cursor=pointer]:
+        - generic [ref=e32]: 🚪
+        - text: 退出
+  - main [ref=e33]:
+    - generic [ref=e34]:
+      - generic [ref=e35]:
+        - heading "AI 纪要生成" [level=1] [ref=e36]
+        - paragraph [ref=e37]: 选择已完成转写的任务，自动关联会议背景和参考文档，流式生成 AI 纪要
+      - generic [ref=e38]:
+        - generic [ref=e39]:
+          - generic [ref=e40]: 选择转写任务 *
+          - combobox [ref=e41]:
+            - option "-- 请选择已完成转写的任务 --" [selected]
+            - option "MOPRO-1900 会员退订页文案调整.mp3 — MOPRO-1900 会员退订页文案调整 （2026/8/17 16:16:06）"
+        - generic [ref=e42]:
+          - generic [ref=e43]: 会议模板
+          - generic [ref=e44]:
+            - button "通用" [ref=e45] [cursor=pointer]
+            - button "需求评审" [ref=e46] [cursor=pointer]
+            - button "技术评审" [ref=e47] [cursor=pointer]
+            - button "周会" [ref=e48] [cursor=pointer]
+        - generic [ref=e49]:
+          - generic [ref=e50]: 自定义提示词（可选，覆盖模板）
+          - textbox "留空则使用模板默认提示词..." [ref=e51]
+        - generic [ref=e52]:
+          - generic [ref=e53]:
+            - generic [ref=e54]: Temperature
+            - spinbutton [ref=e55]: "0.3"
+          - generic [ref=e56]:
+            - generic [ref=e57]: Max Tokens
+            - spinbutton [ref=e58]: "8192"
+        - button "🚀 生成纪要" [disabled] [ref=e60]

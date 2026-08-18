@@ -124,6 +124,7 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { listLlmSources, createLlmSource, updateLlmSource, deleteLlmSource, activateLlmSource } from '../api.js'
+import { toast } from '../toast.js'
 
 const sources = ref([])
 const loading = ref(true)
@@ -234,7 +235,7 @@ async function doActivate(s) {
     await activateLlmSource(s.id)
     sources.value = await listLlmSources()
   } catch (e) {
-    alert('激活失败: ' + (e.message || '未知错误'))
+    toast.error('激活失败: ' + (e.message || '未知错误'))
   }
 }
 
@@ -244,7 +245,7 @@ async function doDelete(s) {
     await deleteLlmSource(s.id)
     sources.value = await listLlmSources()
   } catch (e) {
-    alert('删除失败: ' + (e.message || '未知错误'))
+    toast.error('删除失败: ' + (e.message || '未知错误'))
   }
 }
 </script>

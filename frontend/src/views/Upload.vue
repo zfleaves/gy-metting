@@ -14,7 +14,15 @@
           {{ m.title }}（{{ m.snapshot_ids?.length || 0 }} 个文档）
         </option>
       </select>
+      <button class="btn-add-meeting" @click="showNewMeeting = true">+ 新增会议</button>
     </div>
+
+    <!-- 新增会议弹窗 -->
+    <CreateMeetingModal
+      :visible="showNewMeeting"
+      @close="showNewMeeting = false"
+      @saved="onMeetingCreated"
+    />
 
     <div class="upload-zone"
       :class="{ dragging, uploaded: !!uploadResult }"
@@ -71,7 +79,7 @@
             </div>
             <p class="polling-hint">
               <span class="spinner-sm"></span>
-              {{ pollingCount > 0 ? `已等待 ${pollingCount}s` : '自动刷新中...' }}
+              {{ pollingCount > 0 ? `已等待 ${formatDuration(pollingCount)}` : '自动刷新中...' }}
             </p>
           </div>
         </template>
@@ -80,7 +88,10 @@
         <template v-if="viewState === 'done'">
           <div class="task-link">
             <p>✅ 转写完成</p>
-            <router-link :to="`/task/${taskId}`" class="btn-primary">查看转写结果 →</router-link>
+            <div class="task-actions">
+              <router-link :to="`/task/${taskId}`" class="btn-primary">查看转写结果 →</router-link>
+              <router-link :to="`/minutes/new?task_id=${taskId}`" class="btn-minutes">📝 生成纪要</router-link>
+            </div>
           </div>
         </template>
 
@@ -102,6 +113,7 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { uploadAudio, submitTask, getTask, listMeetings } from '../api.js'
+import CreateMeetingModal from '../components/CreateMeetingModal.vue'
 
 const fileInput = ref(null)
 const dragging = ref(false)
@@ -120,6 +132,15 @@ const selectedMeetingName = computed(() => {
   const m = meetings.value.find(m => m.id === selectedMeetingId.value)
   return m ? m.title : ''
 })
+// 新增会议弹窗
+const showNewMeeting = ref(false)
+
+// 新增会议 - 创建成功后刷新列表并自动选中
+async function onMeetingCreated(m) {
+  meetings.value = await listMeetings()
+  selectedMeetingId.value = m.id
+  showNewMeeting.value = false
+}
 let timer = null
 
 // 用 computed 统一管理视图状态，避免多个 v-if 条件冲突
@@ -223,6 +244,16 @@ function stopPolling() {
   }
 }
 
+function formatDuration(s) {
+  const m = Math.floor(s / 60)
+  const sec = s % 60
+  if (m >= 60) {
+    const h = Math.floor(m / 60)
+    return `${h}时${m % 60}分${sec}秒`
+  }
+  return `${m}分${sec}秒`
+}
+
 function progressLabel(p) {
   if (p < 0.08) return '排队等待中...'
   if (p < 0.18) return '加载模型中...'
@@ -275,6 +306,11 @@ onUnmounted(() => {
 .meeting-select:focus {
   border-color: #4f46e5;
 }
+.btn-add-meeting {
+  padding: 8px 16px; background: #4f46e5; color: #fff; border: none;
+  border-radius: 6px; font-size: 0.82rem; cursor: pointer; white-space: nowrap;
+}
+.btn-add-meeting:hover { background: #4338ca; }
 .meeting-tag {
   display: inline-block; margin-top: 8px; padding: 4px 12px;
   background: #eef2ff; color: #4f46e5; border-radius: 6px;
@@ -343,6 +379,9 @@ onUnmounted(() => {
 .task-link { margin-top: 16px; }
 .task-link p { color: #64748b; margin-bottom: 8px; }
 .task-link .btn-primary { display: inline-block; text-decoration: none; }
+.task-actions { display: flex; gap: 10px; justify-content: center; }
+.btn-minutes { padding: 10px 24px; background: #4f46e5; color: #fff; border: none; border-radius: 8px; font-size: 0.9rem; cursor: pointer; text-decoration: none; display: inline-block; }
+.btn-minutes:hover { background: #4338ca; }
 .failed-text { color: #dc2626 !important; font-weight: 600; }
 .error-detail { color: #94a3b8; font-size: 0.85rem; margin-bottom: 12px; max-width: 400px; word-break: break-all; }
 

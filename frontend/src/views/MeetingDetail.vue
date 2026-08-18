@@ -61,9 +61,18 @@
               </div>
               <span class="preview-meta" v-if="previewMeta">{{ previewMeta.size }} 字</span>
             </div>
-            <div class="preview-body">
-              <div class="yuque-doc" v-html="renderedContent"></div>
+            <div class="preview-body" ref="previewBodyRef">
+              <div class="yuque-doc" v-html="renderedContent" @click="onDocClick"></div>
             </div>
+
+            <!-- 图片灯箱 (Element Plus) -->
+            <el-image-viewer
+              v-if="lightboxVisible"
+              :url-list="lightboxProxiedUrls"
+              :initial-index="lightboxIdx"
+              :hide-on-click-modal="false"
+              @close="closeLightbox"
+            />
           </template>
         </div>
       </div>
@@ -72,7 +81,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { getMeeting, getDocument } from '../api.js'
 import { marked } from 'marked'
@@ -89,28 +98,34 @@ const previewContent = ref('')
 const previewLoading = ref(false)
 const previewError = ref('')
 const previewMeta = ref(null)
+const previewBodyRef = ref(null)
+
+// 图片灯箱 (Element Plus)
+const lightboxVisible = ref(false)
+const lightboxIdx = ref(0)
+const lightboxImages = ref([])
+
+const lightboxProxiedUrls = computed(() => {
+  return lightboxImages.value.map(url => `/api/yuque-image-proxy?url=${encodeURIComponent(url)}`)
+})
 
 const renderedContent = computed(() => {
   if (!previewContent.value) return ''
   try {
     let html = marked.parse(previewContent.value)
+    // 替换图片代理 + 添加点击事件
     html = html.replace(/<img src="https:\/\/cdn\.nlark\.com([^"]+)"/g, (match, path) => {
       const origUrl = `https://cdn.nlark.com${path}`
-      return `<img src="/api/yuque-image-proxy?url=${encodeURIComponent(origUrl)}"`
+      return `<img src="/api/yuque-image-proxy?url=${encodeURIComponent(origUrl)}" class="doc-img" data-img="${origUrl}"`
     })
+    // 变更记录高亮
+    html = html.replace(
+      /<td>(⚠️[^<]*)<\/td>/g,
+      '<td class="change-highlight">$1</td>'
+    )
     return html
   }
   catch { return previewContent.value }
-})
-
-onMounted(async () => {
-  try {
-    meeting.value = await getMeeting(route.params.id)
-    if (meeting.value.snapshots?.length) {
-      selectFile(0)
-    }
-  } catch { /* ignore */ }
-  finally { loading.value = false }
 })
 
 function formatTime(t) {
@@ -140,11 +155,55 @@ function selectFile(idx) {
   getDocument(item.id).then(doc => {
     previewContent.value = doc.content || '(无内容)'
     previewMeta.value = { size: (doc.content?.length || 0).toLocaleString() }
+    // 解析文档中的图片（markdown 格式 ![](url) 和 HTML 格式 <img src="url">）
+    const imgRegex = /!\[.*?\]\((https?:\/\/[^\s)]+)\)|<img[^>]+src="(https?:\/\/[^"]+)"/g
+    const imgs = []
+    let m
+    while ((m = imgRegex.exec(doc.content || '')) !== null) {
+      imgs.push(m[1] || m[2])
+    }
+    lightboxImages.value = imgs
   }).catch(e => {
     previewError.value = '加载失败: ' + (e.message || '未知错误')
   }).finally(() => {
     previewLoading.value = false
   })
+}
+
+// 图片灯箱 (Element Plus)
+function onDocClick(e) {
+  const img = e.target.closest('.doc-img')
+  if (!img) return
+  const idx = lightboxImages.value.indexOf(img.getAttribute('data-img'))
+  if (idx >= 0) lightboxIdx.value = idx
+  lightboxVisible.value = true
+}
+
+function closeLightbox() {
+  lightboxVisible.value = false
+}
+
+function onKeydown(e) {
+  if (e.key === 'Escape' && lightboxVisible.value) closeLightbox()
+}
+
+onMounted(() => {
+  window.addEventListener('keydown', onKeydown)
+  loadMeeting()
+})
+
+onUnmounted(() => {
+  window.removeEventListener('keydown', onKeydown)
+})
+
+async function loadMeeting() {
+  try {
+    meeting.value = await getMeeting(route.params.id)
+    if (meeting.value.snapshots?.length) {
+      selectFile(0)
+    }
+  } catch { /* ignore */ }
+  finally { loading.value = false }
 }
 </script>
 
@@ -211,4 +270,7 @@ function selectFile(idx) {
 .yuque-doc :deep(pre) { background: #f6f8fa; border: 1px solid #e2e8f0; border-radius: 6px; padding: 16px; overflow-x: auto; margin: 1em 0; }
 .yuque-doc :deep(pre code) { background: none; padding: 0; font-size: 0.85em; color: #1e293b; line-height: 1.5; }
 .yuque-doc :deep(blockquote) { margin: 1em 0; padding: 8px 16px; border-left: 4px solid #4f46e5; background: #f8fafc; color: #64748b; }
+.yuque-doc :deep(td.change-highlight) { background: #fef3c7 !important; font-weight: 600; color: #92400e; }
+.yuque-doc :deep(td.change-highlight) ~ td { background: #fffbeb; }
+.yuque-doc :deep(.doc-img) { max-width: 100%; cursor: zoom-in; border: 1px solid #e2e8f0; border-radius: 4px; margin: 8px 0; }
 </style>

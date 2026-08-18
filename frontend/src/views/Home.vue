@@ -104,6 +104,7 @@
 <script setup>
 import { ref, onMounted, computed } from 'vue'
 import { healthCheck, listTasks, deleteTask, listMeetings, updateTaskMeeting } from '../api.js'
+import { toast } from '../toast.js'
 
 const serverOk = ref(false)
 const version = ref('')
@@ -158,7 +159,7 @@ async function doAssoc() {
     assocTask.value.meeting_id = assocMeetingId.value || null
     assocTask.value = null
   } catch (e) {
-    alert('保存失败: ' + (e.message || '未知错误'))
+    toast.error('保存失败: ' + (e.message || '未知错误'))
   } finally {
     assocSaving.value = false
   }
@@ -185,7 +186,7 @@ async function doDelete() {
     await deleteTask(task.id)
     tasks.value = tasks.value.filter(t => t.id !== task.id)
   } catch (e) {
-    alert('删除失败: ' + (e.message || '未知错误'))
+    toast.error('删除失败: ' + (e.message || '未知错误'))
   } finally {
     deleting.value = null
   }

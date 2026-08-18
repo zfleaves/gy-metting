@@ -353,3 +353,65 @@ export function deleteLlmSource(id) {
 export function activateLlmSource(id) {
   return request(`/api/llm-sources/${id}/activate`, { method: 'POST' })
 }
+
+// ============================================================
+// AI 纪要
+// ============================================================
+
+export function listMinutes(params = {}) {
+  const q = new URLSearchParams()
+  if (params.search) q.set('search', params.search)
+  if (params.limit) q.set('limit', params.limit)
+  if (params.offset) q.set('offset', params.offset)
+  return request(`/api/minutes?${q}`)
+}
+
+export function getMinutes(id) {
+  return request(`/api/minutes/${id}`)
+}
+
+export function deleteMinutes(id) {
+  return request(`/api/minutes/${id}`, { method: 'DELETE' })
+}
+
+export function updateMinutes(id, data) {
+  return request(`/api/minutes/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+    headers: { 'Content-Type': 'application/json' },
+  })
+}
+
+export function exportMinutes(id) {
+  const token = getToken()
+  return fetch(`/api/minutes/${id}/export`, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  })
+}
+
+export function listPreferences(params = {}) {
+  const q = new URLSearchParams()
+  if (params.adopted !== undefined) q.set('adopted', params.adopted)
+  if (params.meeting_type) q.set('meeting_type', params.meeting_type)
+  return request(`/api/preferences?${q}`)
+}
+
+export function createPreference(data) {
+  return request('/api/preferences', {
+    method: 'POST',
+    body: JSON.stringify(data),
+    headers: { 'Content-Type': 'application/json' },
+  })
+}
+
+export function updatePreference(id, data) {
+  return request(`/api/preferences/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+    headers: { 'Content-Type': 'application/json' },
+  })
+}
+
+export function deletePreference(id) {
+  return request(`/api/preferences/${id}`, { method: 'DELETE' })
+}

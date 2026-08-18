@@ -71,6 +71,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { listYuqueRecords, deleteYuqueRecord, rePullYuqueRecord } from '../api.js'
+import { toast } from '../toast.js'
 
 const router = useRouter()
 const records = ref([])
@@ -114,9 +115,9 @@ async function doRePull(r) {
   try {
     await rePullYuqueRecord(r.id)
     records.value = (await listYuqueRecords()).map(r => ({ ...r, _repulling: false }))
-    alert('重新拉取完成！')
+    toast.success('重新拉取完成！')
   } catch (e) {
-    alert('重新拉取失败: ' + (e.message || '未知错误'))
+    toast.error('重新拉取失败: ' + (e.message || '未知错误'))
   } finally {
     r._repulling = false
   }
@@ -128,7 +129,7 @@ async function doDelete(r) {
     await deleteYuqueRecord(r.id)
     records.value = records.value.filter(item => item.id !== r.id)
   } catch (e) {
-    alert('删除失败: ' + (e.message || '未知错误'))
+    toast.error('删除失败: ' + (e.message || '未知错误'))
   }
 }
 </script>

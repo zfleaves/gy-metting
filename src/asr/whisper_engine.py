@@ -151,7 +151,7 @@ class WhisperEngine(BaseASREngine):
             try:
                 segments_iter, info = self._model.transcribe(
                     audio_path,
-                    beam_size=5,
+                    beam_size=1,
                     language="zh",
                     vad_filter=True,  # 过滤静音段
                 )
@@ -173,8 +173,8 @@ class WhisperEngine(BaseASREngine):
                 ))
                 full_text_parts.append(text)
 
-                # 每 5 段回报一次进度（映射到 0.20 ~ 0.85 区间）
-                if progress_callback and total_duration > 0 and idx % 5 == 0:
+                # 每 2 段回报一次进度（映射到 0.20 ~ 0.85 区间）
+                if progress_callback and total_duration > 0 and idx % 2 == 0:
                     raw_pct = min(seg.end / total_duration, 1.0)
                     mapped = 0.20 + raw_pct * 0.65  # 0.20 → 0.85
                     progress_callback(mapped)

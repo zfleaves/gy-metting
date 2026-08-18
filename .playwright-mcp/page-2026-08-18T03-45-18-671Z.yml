@@ -1,0 +1,101 @@
+- generic [ref=f1e3]:
+  - complementary [ref=f1e4]:
+    - generic [ref=f1e5]:
+      - heading "gy-meeting" [level=1] [ref=f1e6]
+      - generic [ref=f1e7]: v0.2
+    - navigation [ref=f1e8]:
+      - link "📊 工作台" [ref=f1e9] [cursor=pointer]:
+        - /url: /
+        - generic [ref=f1e10]: 📊
+        - text: 工作台
+      - link "🎙️ 音频转写" [ref=f1e11] [cursor=pointer]:
+        - /url: /upload
+        - generic [ref=f1e12]: 🎙️
+        - text: 音频转写
+      - link "📄 参考文档" [ref=f1e13] [cursor=pointer]:
+        - /url: /documents
+        - generic [ref=f1e14]: 📄
+        - text: 参考文档
+      - link "🦜 语雀拉取" [ref=f1e15] [cursor=pointer]:
+        - /url: /yuque-pull
+        - generic [ref=f1e16]: 🦜
+        - text: 语雀拉取
+      - link "📋 拉取记录" [ref=f1e17] [cursor=pointer]:
+        - /url: /yuque-records
+        - generic [ref=f1e18]: 📋
+        - text: 拉取记录
+      - link "🤖 LLM 来源" [ref=f1e19] [cursor=pointer]:
+        - /url: /llm-sources
+        - generic [ref=f1e20]: 🤖
+        - text: LLM 来源
+      - link "📝 AI 纪要" [ref=f1e21] [cursor=pointer]:
+        - /url: /minutes
+        - generic [ref=f1e22]: 📝
+        - text: AI 纪要
+      - link "👥 用户管理" [ref=f1e23] [cursor=pointer]:
+        - /url: /users
+        - generic [ref=f1e24]: 👥
+        - text: 用户管理
+    - generic [ref=f1e25]:
+      - generic [ref=f1e26]:
+        - generic [ref=f1e27]: A
+        - generic [ref=f1e28]:
+          - generic [ref=f1e29]: admin
+          - generic [ref=f1e30]: 超级管理员
+      - button "🚪 退出" [ref=f1e31] [cursor=pointer]:
+        - generic [ref=f1e32]: 🚪
+        - text: 退出
+  - main [ref=f1e33]:
+    - generic [ref=f1e34]:
+      - generic [ref=f1e35]:
+        - heading "LLM 来源管理" [level=1] [ref=f1e36]
+        - paragraph [ref=f1e37]: 管理多个 LLM 配置，切换当前使用的模型
+      - generic [ref=f1e38]:
+        - textbox "搜索名称..." [ref=f1e39]
+        - button "+ 新增来源" [ref=f1e40] [cursor=pointer]
+      - table [ref=f1e42]:
+        - rowgroup [ref=f1e43]:
+          - row [ref=f1e44]:
+            - columnheader "#" [ref=f1e45]
+            - columnheader "名称" [ref=f1e46]
+            - columnheader "提供商" [ref=f1e47]
+            - columnheader "模型" [ref=f1e48]
+            - columnheader "API 地址" [ref=f1e49]
+            - columnheader "API Key" [ref=f1e50]
+            - columnheader "状态" [ref=f1e51]
+            - columnheader "创建时间" [ref=f1e52]
+            - columnheader "操作" [ref=f1e53]
+        - rowgroup [ref=f1e54]:
+          - row [ref=f1e55]:
+            - cell "1" [ref=f1e56]
+            - cell [ref=f1e57]:
+              - strong [ref=f1e58]: 高阳deepseek-v4（pro、flash）
+            - cell "自定义" [ref=f1e59]
+            - cell [ref=f1e60]:
+              - code [ref=f1e61]: deepseek-v4-pro
+            - cell "https://yiz.bjkhdf.cn" [ref=f1e62]
+            - cell [ref=f1e63]:
+              - code [ref=f1e64]: sk-VV7u2***
+            - cell [ref=f1e65]:
+              - button "激活" [ref=f1e66] [cursor=pointer]
+            - cell "2026/8/17 17:33:53" [ref=f1e67]
+            - cell [ref=f1e68]:
+              - generic [ref=f1e69]:
+                - button "修改" [ref=f1e70] [cursor=pointer]
+                - button "删除" [ref=f1e71] [cursor=pointer]
+          - row [ref=f1e72]:
+            - cell "2" [ref=f1e73]
+            - cell [ref=f1e74]:
+              - strong [ref=f1e75]: 高阳deepseek-v4-flash
+            - cell "自定义" [ref=f1e76]
+            - cell [ref=f1e77]:
+              - code [ref=f1e78]: deepseek-v4-flash
+            - cell "https://yiz.bjkhdf.cn" [ref=f1e79]
+            - cell [ref=f1e80]:
+              - code [ref=f1e81]: sk-VV7u2***
+            - cell "✅ 当前" [ref=f1e82]
+            - cell "2026/8/17 17:09:32" [ref=f1e83]
+            - cell [ref=f1e84]:
+              - generic [ref=f1e85]:
+                - button "修改" [ref=f1e86] [cursor=pointer]
+                - button "删除" [ref=f1e87] [cursor=pointer]

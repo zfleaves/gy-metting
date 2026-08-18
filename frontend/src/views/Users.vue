@@ -58,6 +58,7 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { listUsers, createUser, deleteUser, getStoredUser } from '../api.js'
+import { toast } from '../toast.js'
 
 const users = ref([])
 const loading = ref(true)
@@ -105,7 +106,7 @@ async function doDelete(u) {
     await deleteUser(u.id)
     users.value = await listUsers()
   } catch (e) {
-    alert(e.message)
+    toast.error(e.message)
   }
 }
 

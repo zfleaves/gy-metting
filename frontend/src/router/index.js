@@ -57,6 +57,26 @@ const routes = [
     name: 'LlmSources',
     component: () => import('../views/LlmSources.vue'),
   },
+  {
+    path: '/minutes',
+    name: 'MinutesList',
+    component: () => import('../views/MinutesList.vue'),
+  },
+  {
+    path: '/minutes/new',
+    name: 'MinutesGenerate',
+    component: () => import('../views/MinutesGenerate.vue'),
+  },
+  {
+    path: '/minutes/:id',
+    name: 'MinutesDetail',
+    component: () => import('../views/MinutesDetail.vue'),
+  },
+  {
+    path: '/preferences',
+    name: 'Preferences',
+    component: () => import('../views/Preferences.vue'),
+  },
 ]
 
 const router = createRouter({

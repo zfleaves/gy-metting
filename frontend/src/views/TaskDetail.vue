@@ -34,6 +34,13 @@
           </div>
       </div>
 
+      <!-- 操作按钮 -->
+      <div class="action-bar">
+        <router-link :to="`/minutes/new?task_id=${task.id}`" class="btn-minutes" v-if="task.status === 'completed'">
+          📝 生成纪要
+        </router-link>
+      </div>
+
       <!-- 错误信息 -->
       <div v-if="task.status === 'failed' && task.error_message" class="error-card">
         <h3>错误信息</h3>
@@ -546,6 +553,10 @@ async function autoHighlight() {
 .status-card.failed { background: #fef2f2; border: 1px solid #fecaca; }
 .status-card.processing { background: #fefce8; border: 1px solid #fef08a; }
 .status-card.pending { background: #f8fafc; border: 1px solid #e2e8f0; }
+
+.action-bar { margin: 16px 0; display: flex; gap: 8px; }
+.btn-minutes { padding: 10px 24px; background: #4f46e5; color: #fff; border: none; border-radius: 8px; font-size: 0.9rem; cursor: pointer; text-decoration: none; display: inline-block; }
+.btn-minutes:hover { background: #4338ca; }
 
 .status-badge {
   display: inline-block;

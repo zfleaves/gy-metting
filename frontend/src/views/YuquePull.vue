@@ -204,6 +204,7 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { listYuqueSources, createYuqueSource, updateYuqueSource, deleteYuqueSource, pullYuqueRequirement, getDocument } from '../api.js'
+import { toast } from '../toast.js'
 
 const sources = ref([])
 const searchQuery = ref('')
@@ -312,7 +313,7 @@ async function removeSource(s) {
     if (selectedSource.value === s.id) selectedSource.value = ''
     sources.value = await listYuqueSources()
   } catch (e) {
-    alert('删除失败: ' + (e.message || '未知错误'))
+    toast.error('删除失败: ' + (e.message || '未知错误'))
   }
 }
 

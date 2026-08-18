@@ -35,6 +35,12 @@
           <router-link to="/llm-sources" class="nav-item">
             <span class="nav-icon">🤖</span> LLM 来源
           </router-link>
+          <router-link to="/preferences" class="nav-item">
+            <span class="nav-icon">⭐</span> 偏好管理
+          </router-link>
+          <router-link to="/minutes" class="nav-item">
+            <span class="nav-icon">📝</span> AI 纪要
+          </router-link>
           <router-link v-if="isAdmin" to="/users" class="nav-item">
             <span class="nav-icon">👥</span> 用户管理
           </router-link>
@@ -56,6 +62,7 @@
         <router-view />
       </main>
     </template>
+    <Toast ref="toastRef" />
   </div>
 </template>
 
@@ -63,6 +70,7 @@
 import { ref, computed, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { getStoredUser, logout } from './api.js'
+import Toast from './components/Toast.vue'
 
 const router = useRouter()
 const route = useRoute()

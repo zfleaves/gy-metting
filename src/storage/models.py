@@ -242,3 +242,49 @@ class LlmSource(Base):
     is_active = Column(String(5), default="0")  # 是否当前激活: 1 激活, 0 未激活
     created_at = Column(DateTime, nullable=False, default=_utcnow)
     updated_at = Column(DateTime, nullable=False, default=_utcnow, onupdate=_utcnow)
+
+
+# ============================================================
+# AI 纪要模型
+# ============================================================
+
+class Minutes(Base):
+    """AI 生成的会议纪要记录"""
+
+    __tablename__ = "minutes"
+
+    id = Column(String(32), primary_key=True, default=_new_id)
+    user_id = Column(String(32), ForeignKey("users.id"), nullable=False, index=True)
+    meeting_id = Column(String(32), ForeignKey("meetings.id"), nullable=True, index=True)
+    task_id = Column(String(32), ForeignKey("tasks.id"), nullable=True)
+    title = Column(String(200), nullable=False)
+    meeting_type = Column(String(50), nullable=True, default="通用")
+    content = Column(Text, nullable=True)
+    prompt = Column(Text, nullable=True)
+    token_count = Column(Integer, default=0)
+    created_at = Column(DateTime, nullable=False, default=_utcnow)
+
+
+# ============================================================
+# 纪要偏好模型
+# ============================================================
+
+class MinutesPreference(Base):
+    """纪要偏好 — 保存不同版本的生成结果，用户可采纳为偏好模板"""
+
+    __tablename__ = "minutes_preferences"
+
+    id = Column(String(32), primary_key=True, default=_new_id)
+    user_id = Column(String(32), ForeignKey("users.id"), nullable=False, index=True)
+    name = Column(String(200), nullable=True)  # 偏好的名称（用户自定义）
+    meeting_type = Column(String(50), nullable=True, default="通用")
+    content = Column(Text, nullable=True)  # 纪要内容（作为偏好模板）
+    temperature = Column(Float, nullable=True, default=0.3)
+    max_tokens = Column(Integer, nullable=True, default=8192)
+    custom_prompt = Column(Text, nullable=True)  # 自定义提示词
+    notes = Column(Text, nullable=True)  # 用户备注/原因
+    is_adopted = Column(String(5), default="0")  # 1=已采纳, 0=未采纳（候选）
+    is_default = Column(String(5), default="0")  # 1=默认偏好
+    source_minutes_id = Column(String(32), nullable=True)  # 关联的纪要记录
+    created_at = Column(DateTime, nullable=False, default=_utcnow)
+    updated_at = Column(DateTime, nullable=False, default=_utcnow, onupdate=_utcnow)

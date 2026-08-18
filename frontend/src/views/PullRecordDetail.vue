@@ -94,6 +94,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { getYuqueRecord, deleteYuqueRecord, rePullYuqueRecord, getDocument } from '../api.js'
 import { marked } from 'marked'
+import { toast } from '../toast.js'
 
 // 配置 marked
 marked.setOptions({
@@ -198,9 +199,9 @@ async function doRePull() {
     // 重新选中当前文件
     const idx = Math.min(selectedFileIdx.value, record.value.results.length - 1)
     if (idx >= 0) selectFile(idx)
-    alert('重新拉取完成！')
+    toast.success('重新拉取完成！')
   } catch (e) {
-    alert('重新拉取失败: ' + (e.message || '未知错误'))
+    toast.error('重新拉取失败: ' + (e.message || '未知错误'))
   } finally {
     repulling.value = false
   }
@@ -213,7 +214,7 @@ async function doDelete() {
     await deleteYuqueRecord(route.params.id)
     router.push('/yuque-records')
   } catch (e) {
-    alert('删除失败: ' + (e.message || '未知错误'))
+    toast.error('删除失败: ' + (e.message || '未知错误'))
   }
 }
 </script>

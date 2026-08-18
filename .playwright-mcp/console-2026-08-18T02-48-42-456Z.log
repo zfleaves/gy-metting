@@ -1,0 +1,9 @@
+[  552077ms] [ERROR] Failed to load module script: Expected a JavaScript-or-Wasm module script but the server responded with a MIME type of "text/html". Strict MIME type checking is enforced for module scripts per HTML spec. @ http://localhost:8000/assets/LlmSources-3HJ09gyM.js:0
+[  552078ms] [ERROR] TypeError: Failed to fetch dynamically imported module: http://localhost:8000/assets/LlmSources-3HJ09gyM.js @ http://localhost:8000/assets/index-BS5Z3cfY.js:26
+[ 1012085ms] [ERROR] Failed to load module script: Expected a JavaScript-or-Wasm module script but the server responded with a MIME type of "text/html". Strict MIME type checking is enforced for module scripts per HTML spec. @ http://localhost:8000/assets/Upload-BNMt0jIU.js:0
+[ 1012085ms] [ERROR] TypeError: Failed to fetch dynamically imported module: http://localhost:8000/assets/Upload-BNMt0jIU.js @ http://localhost:8000/assets/index-BS5Z3cfY.js:26
+[ 1014250ms] [ERROR] TypeError: Failed to fetch dynamically imported module: http://localhost:8000/assets/Upload-BNMt0jIU.js @ http://localhost:8000/assets/index-BS5Z3cfY.js:26
+[ 1015087ms] [ERROR] Failed to load module script: Expected a JavaScript-or-Wasm module script but the server responded with a MIME type of "text/html". Strict MIME type checking is enforced for module scripts per HTML spec. @ http://localhost:8000/assets/Documents-CHp0Q0_L.js:0
+[ 1015087ms] [ERROR] TypeError: Failed to fetch dynamically imported module: http://localhost:8000/assets/Documents-CHp0Q0_L.js @ http://localhost:8000/assets/index-BS5Z3cfY.js:26
+[ 1363117ms] [ERROR] TypeError: Failed to fetch dynamically imported module: http://localhost:8000/assets/LlmSources-3HJ09gyM.js @ http://localhost:8000/assets/index-BS5Z3cfY.js:26
+[ 1364418ms] [ERROR] TypeError: Failed to fetch dynamically imported module: http://localhost:8000/assets/LlmSources-3HJ09gyM.js @ http://localhost:8000/assets/index-BS5Z3cfY.js:26
