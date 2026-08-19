@@ -110,22 +110,22 @@ function goDetail(id) {
 }
 
 async function doRePull(r) {
-  if (!confirm(`确定重新拉取「${r.requirement_id}」？`)) return
-  r._repulling = true
   try {
+    await ElMessageBox.confirm(`确定重新拉取「${r.requirement_id}」？`, '确认重新拉取', { confirmButtonText: '重新拉取', cancelButtonText: '取消', type: 'warning' })
+    r._repulling = true
     await rePullYuqueRecord(r.id)
     records.value = (await listYuqueRecords()).map(r => ({ ...r, _repulling: false }))
     toast.success('重新拉取完成！')
   } catch (e) {
-    toast.error('重新拉取失败: ' + (e.message || '未知错误'))
+    if (e !== 'cancel') toast.error('重新拉取失败: ' + (e.message || '未知错误'))
   } finally {
     r._repulling = false
   }
 }
 
 async function doDelete(r) {
-  if (!confirm(`确定删除拉取记录「${r.requirement_id}」？`)) return
   try {
+    await ElMessageBox.confirm(`确定删除拉取记录「${r.requirement_id}」？`, '确认删除', { confirmButtonText: '删除', cancelButtonText: '取消', type: 'warning' })
     await deleteYuqueRecord(r.id)
     records.value = records.value.filter(item => item.id !== r.id)
   } catch (e) {

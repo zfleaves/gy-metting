@@ -191,9 +191,9 @@ function selectFile(idx) {
 
 async function doRePull() {
   if (!record.value) return
-  if (!confirm(`确定重新拉取「${record.value.requirement_id}」？`)) return
-  repulling.value = true
   try {
+    await ElMessageBox.confirm(`确定重新拉取「${record.value.requirement_id}」？`, '确认重新拉取', { confirmButtonText: '重新拉取', cancelButtonText: '取消', type: 'warning' })
+    repulling.value = true
     await rePullYuqueRecord(route.params.id)
     record.value = await getYuqueRecord(route.params.id)
     // 重新选中当前文件
@@ -201,7 +201,7 @@ async function doRePull() {
     if (idx >= 0) selectFile(idx)
     toast.success('重新拉取完成！')
   } catch (e) {
-    toast.error('重新拉取失败: ' + (e.message || '未知错误'))
+    if (e !== 'cancel') toast.error('重新拉取失败: ' + (e.message || '未知错误'))
   } finally {
     repulling.value = false
   }
@@ -209,12 +209,12 @@ async function doRePull() {
 
 async function doDelete() {
   if (!record.value) return
-  if (!confirm(`确定删除拉取记录「${record.value.requirement_id}」？`)) return
   try {
+    await ElMessageBox.confirm(`确定删除拉取记录「${record.value.requirement_id}」？`, '确认删除', { confirmButtonText: '删除', cancelButtonText: '取消', type: 'warning' })
     await deleteYuqueRecord(route.params.id)
     router.push('/yuque-records')
   } catch (e) {
-    toast.error('删除失败: ' + (e.message || '未知错误'))
+    if (e !== 'cancel') toast.error('删除失败: ' + (e.message || '未知错误'))
   }
 }
 </script>

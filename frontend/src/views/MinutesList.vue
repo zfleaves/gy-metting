@@ -119,14 +119,14 @@ async function doExport(r) {
 }
 
 async function doDelete(r) {
-  if (!confirm(`确定删除纪要「${r.title}」？`)) return
   try {
+    await ElMessageBox.confirm(`确定删除纪要「${r.title}」？`, '确认删除', { confirmButtonText: '删除', cancelButtonText: '取消', type: 'warning' })
     await deleteMinutes(r.id)
     records.value = records.value.filter(item => item.id !== r.id)
     total.value--
     toast.success('已删除')
   } catch (e) {
-    toast.error('删除失败: ' + (e.message || '未知错误'))
+    if (e !== 'cancel') toast.error('删除失败: ' + (e.message || '未知错误'))
   }
 }
 </script>

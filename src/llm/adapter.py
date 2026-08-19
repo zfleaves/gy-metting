@@ -75,4 +75,5 @@ def get_llm_adapter() -> LLMAdapter:
         base_url=base_url,
         api_key=api_key,
         model=model,
+        timeout=config.LLM_TIMEOUT_SECONDS,
     )

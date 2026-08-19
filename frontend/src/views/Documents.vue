@@ -124,12 +124,12 @@ async function onMeetingSaved() {
 }
 
 async function doDelete(m) {
-  if (!confirm(`确定删除会议「${m.title}」？`)) return
   try {
+    await ElMessageBox.confirm(`确定删除会议「${m.title}」？`, '确认删除', { confirmButtonText: '删除', cancelButtonText: '取消', type: 'warning' })
     await deleteMeeting(m.id)
     meetings.value = meetings.value.filter(item => item.id !== m.id)
   } catch (e) {
-    toast.error('删除失败: ' + (e.message || '未知错误'))
+    if (e !== 'cancel') toast.error('删除失败: ' + (e.message || '未知错误'))
   }
 }
 </script>

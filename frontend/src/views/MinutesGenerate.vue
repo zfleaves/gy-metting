@@ -53,16 +53,18 @@
       </div>
 
       <div class="field">
-        <label>使用偏好（可选）</label>
-        <select v-model="selectedPrefId" class="form-select">
-          <option value="">-- 不使用偏好 --</option>
-          <option v-for="p in adoptedPrefs" :key="p.id" :value="p.id">
-            {{ p.name || p.meeting_type }} {{ p.is_default ? '⭐' : '' }}
-          </option>
-        </select>
-        <div v-if="selectedPrefId && selectedPref" class="pref-hint">
-          📎 {{ selectedPref.name }}（{{ selectedPref.meeting_type }}）
-          <span v-if="selectedPref.notes">— {{ selectedPref.notes }}</span>
+        <label>使用偏好（可选，可多选）</label>
+        <div class="pref-checkbox-list">
+          <label v-for="p in adoptedPrefs" :key="p.id" class="pref-checkbox-item">
+            <input type="checkbox" :value="p.id" v-model="selectedPrefIds" />
+            <span class="pref-checkbox-label">{{ p.name || p.meeting_type }}</span>
+            <span v-if="p.is_default" class="default-badge-sm">⭐</span>
+            <span v-if="p.notes" class="pref-checkbox-notes">— {{ p.notes }}</span>
+          </label>
+          <div v-if="!adoptedPrefs.length" class="pref-empty">暂无已采纳偏好，可在偏好管理页面采纳</div>
+        </div>
+        <div v-if="selectedPrefIds.length" class="pref-hint">
+          📎 已选 {{ selectedPrefIds.length }} 个偏好作为参考模板
         </div>
       </div>
 
@@ -150,13 +152,15 @@
             <textarea v-model="regenNotes" class="form-textarea" rows="4" placeholder="输入你的具体要求，如：请重点关注待办事项的截止时间、把决策描述得更详细等"></textarea>
           </div>
           <div class="field">
-            <label>使用偏好</label>
-            <select v-model="regenPrefId" class="form-select">
-              <option value="">-- 不使用偏好 --</option>
-              <option v-for="p in adoptedPrefs" :key="p.id" :value="p.id">
-                {{ p.name || p.meeting_type }} {{ p.is_default ? '⭐' : '' }}
-              </option>
-            </select>
+            <label>使用偏好（可多选）</label>
+            <div class="pref-checkbox-list">
+              <label v-for="p in adoptedPrefs" :key="p.id" class="pref-checkbox-item">
+                <input type="checkbox" :value="p.id" v-model="regenPrefIds" />
+                <span class="pref-checkbox-label">{{ p.name || p.meeting_type }}</span>
+                <span v-if="p.is_default" class="default-badge-sm">⭐</span>
+              </label>
+              <div v-if="!adoptedPrefs.length" class="pref-empty">暂无已采纳偏好</div>
+            </div>
           </div>
         </div>
         <div class="modal-footer">
@@ -201,7 +205,7 @@ const taskId = ref('')
 const meetingType = ref('通用')
 const customPrompt = ref('')
 const temperature = ref(0.3)
-const maxTokens = ref(8192)
+const maxTokens = ref(16384)
 const templates = ['通用', '需求评审', '技术评审', '周会']
 const templateDesc = {
   '通用': '通用结构化输出：会议摘要、关键决策、待办事项、风险问题',
@@ -212,14 +216,21 @@ const templateDesc = {
 const templatePrompts = {
   '通用': `你是一个专业的会议纪要助手，负责将会议转写文本整理为结构化的会议纪要。
 
-## 核心约束（必须遵守）
-1. 全部决策、变更、待办、风险，必须来自会议转写文本，不得编造；
-2. 参考文档仅作为业务基线，文档有但会上未讨论的内容，严禁输出评审结论；
-3. 会议口头讨论优先级高于参考文档，发生冲突时以会议为准并标注变更；
-4. 识别不到责任人或时间，统一标记【未指定责任人】【时间待确认】，禁止自行编造；
-5. 过滤闲聊、跑题内容，只保留有效业务信息。
+## 输入说明
+【会议转写文本】：会议录音转写原始文本，优先级最高
+【参考文档】：可选，仅作为业务基线；若无参考文档，则相关对比章节直接填写「无参考文档，无需对比」
 
-## 输出格式（Markdown）
+## 核心约束（必须严格遵守）
+1. 全部决策、变更、待办、风险，必须来自会议转写文本，严禁编造任何原文不存在的信息；
+2. 参考文档仅作为业务基线，文档有但会上未讨论的内容，严禁输出评审/判断结论；
+3. 会议口头讨论优先级高于参考文档，二者发生冲突时以会议口头结论为准，并做好标注；
+4. 识别不到责任人统一标记【未指定责任人】，识别不到截止时间统一标记【时间待确认】，禁止自行编造人名、时间；
+5. 过滤闲聊、寒暄、跑题内容，只保留有效业务信息；
+6. 任意模块无对应信息，直接填写「无」，禁止虚构内容填充表格；
+7. 无法从文本提取会议主题，填写【未识别会议主题】；无法提取业务背景，填写【从会议文本中未获取业务背景】；
+8. 区分信息类型：已落地决策、讨论过但未达成一致、待执行待办，不可互相混淆。
+
+## 输出格式（严格使用Markdown，不要新增自定义模块）
 
 ### 会议基本信息
 - **会议主题**：{meeting_title}
@@ -227,7 +238,10 @@ const templatePrompts = {
 - **业务背景**：{background}
 
 ### 会议摘要
-（简要概括本次会议的核心内容）
+简要概括本次会议核心内容，100-250字，不要复述细节，只写整体目标与主要进展。
+
+### 讨论分歧&未决议题
+> 记录会上有争议、进行过讨论，但暂未形成最终结论的事项
 
 ### 关键决策
 | 决策项 | 决策内容 | 决策人 |
@@ -242,18 +256,25 @@ const templatePrompts = {
 |----------|------|---------|
 
 ### 会议参与人
-（根据会议讨论中提到的参与人整理）`,
+根据会议讨论中提到的参与人整理；提取不到则填写：未从会议文本识别参会人员`,
 
   '需求评审': `你是一个专业的会议纪要助手，负责将会议转写文本整理为结构化的需求评审纪要。
 
-## 核心约束（必须遵守）
-1. 全部决策、变更、待办、风险，必须来自会议转写文本，不得编造；
-2. 参考文档仅作为业务基线，文档有但会上未讨论的内容，严禁输出评审结论；
-3. 会议口头讨论优先级高于参考文档，发生冲突时以会议为准并标注变更；
-4. 识别不到责任人或时间，统一标记【未指定责任人】【时间待确认】，禁止自行编造；
-5. 过滤闲聊、跑题内容，只保留有效业务信息。
+## 输入说明
+【会议转写文本】：下面转录的会议口头对话内容，优先级最高
+【参考文档】：可选，作为业务基线；本次若无参考文档，则变更记录章节直接填：无参考文档，不输出变更对比
 
-## 输出格式（Markdown）
+## 核心约束（必须严格遵守）
+1. 全部决策、变更、待办、风险，必须来自会议转写文本，严禁编造任何原文不存在信息；
+2. 参考文档仅作为业务基线，文档有但会上**未讨论**的内容，严禁输出评审结论；
+3. 会议口头讨论优先级高于参考文档，二者发生冲突时以会议口头结论为准，并在变更记录中标注该变更；
+4. 识别不到责任人统一标记【未指定责任人】，识别不到截止时间统一标记【时间待确认】，禁止自行编造人名与时间；
+5. 过滤闲聊、跑题、寒暄内容，只保留有效业务评审信息；
+6. 若某模块没有对应信息，直接填写「无」，禁止为了填充表格虚构内容；
+7. 无法从文本提取会议主题，填写【未识别会议主题】；无法提取业务背景，填写「从会议文本中未获取业务背景」；
+8. 区分三类信息：①已拍板决策 ②讨论过但未达成共识 ③待执行待办，不可互相混淆。
+
+## 输出格式（严格使用Markdown，不要额外增加模块）
 
 ### 会议基本信息
 - **会议主题**：{meeting_title}
@@ -261,7 +282,10 @@ const templatePrompts = {
 - **业务背景**：{background}
 
 ### 评审结论
-（输出本次需求评审的最终结论：通过/不通过/有条件通过）
+（输出本次需求评审的最终结论：通过 / 不通过 / 有条件通过；如果会上未给出明确评审结论，输出：「本次会议未形成明确评审结论，需后续继续评审」）
+
+### 讨论分歧点
+> 记录会上各方不同意见、争议点，仅做客观记录，不输出结论
 
 ### 关键决策
 | 决策项 | 决策内容 | 决策人 |
@@ -275,22 +299,33 @@ const templatePrompts = {
 | 风险/问题 | 影响 | 建议方案 |
 |----------|------|---------|
 
+### 未决议题
+> 会上进行了讨论，但暂未得出最终结论，需要后续继续跟进的事项
+
 ### 变更记录
-（与参考文档不一致的变更点，以会议口头讨论为准）
+> 与参考文档不一致的变更点，以会议口头讨论为准；无参考文档则填写：无参考文档，不输出变更对比
 
 ### 会议参与人
-（根据会议讨论中提到的参与人整理）`,
+（根据会议讨论中提到的参与人整理；提取不到则填写：未从会议文本识别参会人员）`,
 
   '技术评审': `你是一个专业的会议纪要助手，负责将技术评审会议转写文本整理为结构化的技术评审纪要。
 
-## 核心约束（必须遵守）
-1. 全部决策、变更、待办、风险，必须来自会议转写文本，不得编造；
+## 输入说明
+【会议转写文本】：会议录音转写原始文本，优先级最高
+【参考文档】：可选，技术方案文档作为基线；若无参考文档，则架构变更模块填写「无参考文档，不做变更对比」
+
+## 核心约束（必须严格遵守）
+1. 全部决策、变更、待办、风险，必须来自会议转写文本，严禁编造任何原文不存在信息；
 2. 参考文档仅作为业务基线，文档有但会上未讨论的内容，严禁输出评审结论；
 3. 会议口头讨论优先级高于参考文档，发生冲突时以会议为准并标注变更；
-4. 识别不到责任人或时间，统一标记【未指定责任人】【时间待确认】，禁止自行编造；
-5. 过滤闲聊、跑题内容，只保留有效业务信息。
+4. 识别不到责任人统一标记【未指定责任人】，识别不到截止时间统一标记【时间待确认】，禁止自行编造人名、时间；
+5. 过滤闲聊、跑题、寒暄内容，只保留有效技术评审信息；
+6. 任意模块无对应信息，直接填写「无」，禁止虚构内容填充表格；
+7. 无法从文本提取会议主题填写【未识别会议主题】；无法提取业务背景填写【从会议文本中未获取业务背景】；
+8. 会议参与人提取不到则填写：未从会议文本识别参会人员；
+9. 区分信息：已拍板技术决策、技术争议分歧、待执行待办，不可互相混淆。
 
-## 输出格式（Markdown）
+## 输出格式（严格使用Markdown，禁止新增自定义模块）
 
 ### 会议基本信息
 - **会议主题**：{meeting_title}
@@ -298,7 +333,11 @@ const templatePrompts = {
 - **业务背景**：{background}
 
 ### 技术方案评审结论
-（输出技术方案的评审结论：通过/不通过/修改后通过）
+输出技术方案的评审结论：通过 / 不通过 / 修改后通过；
+若本次会议未对方案给出明确评审结论，则输出：**本次会议未形成明确技术评审结论，需后续继续评审**
+
+### 技术分歧与未决议题
+> 记录会上各方技术争议点、讨论过但暂未达成最终结论的技术问题
 
 ### 关键决策
 | 决策项 | 决策内容 | 决策人 |
@@ -313,19 +352,25 @@ const templatePrompts = {
 |--------|---------|---------|
 
 ### 架构变更
-（涉及架构调整的变更点）
+> 涉及架构、接口、模块、存储、流程调整的变更点；无参考文档填写「无参考文档，不做变更对比」
 
 ### 会议参与人
-（根据会议讨论中提到的参与人整理）`,
+（根据会议讨论中提到的参与人整理，提取不到则填写：未从会议文本识别参会人员）`,
 
   '周会': `你是一个专业的会议纪要助手，负责将周会/例会转写文本整理为结构化的会议纪要。
 
-## 核心约束（必须遵守）
-1. 全部决策、变更、待办、风险，必须来自会议转写文本，不得编造；
-2. 过滤闲聊、跑题内容，只保留有效业务信息；
-3. 识别不到责任人或时间，统一标记【未指定责任人】【时间待确认】，禁止自行编造。
+## 输入说明
+【会议转写文本】：会议录音转写原始文本，优先级最高；周会一般无参考文档。
 
-## 输出格式（Markdown）
+## 核心约束（必须遵守）
+1. 全部决策、变更、待办、风险，必须来自会议转写文本，严禁编造任何原文不存在信息；
+2. 过滤闲聊、寒暄、跑题内容，只保留有效业务信息；
+3. 识别不到责任人统一标记【未指定责任人】，识别不到截止时间统一标记【时间待确认】，禁止自行编造人名、时间；
+4. 任意模块无对应信息，直接填写「无」，禁止虚构内容填充表格；
+5. 无法从文本提取会议主题填写【未识别会议主题】；无法提取业务背景填写【从会议文本中未获取业务背景】；
+6. 上周进展、本周计划使用条目化输出，不要大段长段落，客观复述同步内容，不要主观加工。
+
+## 输出格式（严格使用Markdown，禁止新增自定义模块）
 
 ### 会议基本信息
 - **会议主题**：{meeting_title}
@@ -333,10 +378,13 @@ const templatePrompts = {
 - **业务背景**：{background}
 
 ### 上周进展
-（各成员/项目进展同步）
+> 各成员/项目上周已完成工作同步，使用-条目罗列
 
 ### 本周计划
-（本周重点工作安排）
+> 本周重点工作、目标安排，使用-条目罗列
+
+### 会上关键决策
+> 周会过程中临时敲定的决议，无则填无
 
 ### 风险与阻塞
 | 风险/阻塞项 | 责任人 | 需要支持 |
@@ -344,7 +392,10 @@ const templatePrompts = {
 
 ### 待办事项
 | 待办项 | 责任人 | 截止时间 |
-|--------|--------|---------|`,
+|--------|--------|---------|
+
+### 会议参与人
+根据会议讨论中提到的参与人整理；提取不到则填写：未从会议文本识别参会人员`,
 }
 const showPrompt = ref(false)
 
@@ -365,12 +416,12 @@ const editText = ref('')
 const saving = ref(false)
 // 偏好相关
 const adoptedPrefs = ref([])
-const selectedPrefId = ref('')
+const selectedPrefIds = ref([])
 // 重新生成弹窗
 const showRegenDialog = ref(false)
 const regenReason = ref('')
 const regenNotes = ref('')
-const regenPrefId = ref('')
+const regenPrefIds = ref([])
 const regenerating = ref(false)
 
 const selectedMeeting = computed(() => {
@@ -384,8 +435,8 @@ const selectedTask = computed(() => {
 })
 
 const selectedPref = computed(() => {
-  if (!selectedPrefId.value) return null
-  return adoptedPrefs.value.find(p => p.id === selectedPrefId.value) || null
+  if (!selectedPrefIds.value.length) return null
+  return adoptedPrefs.value.filter(p => selectedPrefIds.value.includes(p.id))
 })
 
 const renderedResult = computed(() => {
@@ -422,8 +473,10 @@ onMounted(async () => {
     const res = await listPreferences({ adopted: 1 })
     adoptedPrefs.value = (res.preferences || [])
     // 如果有默认偏好，自动选中
-    const defaultPref = adoptedPrefs.value.find(p => p.is_default)
-    if (defaultPref) selectedPrefId.value = defaultPref.id
+    const defaultPrefs = adoptedPrefs.value.filter(p => p.is_default)
+    if (defaultPrefs.length) {
+      selectedPrefIds.value = defaultPrefs.map(p => p.id)
+    }
   } catch { /* ignore */ }
 })
 
@@ -456,8 +509,8 @@ async function startGenerate(regenOpts) {
   params.set('max_tokens', String(maxTokens.value))
 
   // 偏好与重新生成参数
-  const prefId = regenOpts?.prefId || selectedPrefId.value
-  if (prefId) params.set('preference_id', prefId)
+  const prefIds = regenOpts?.prefIds?.length ? regenOpts.prefIds : selectedPrefIds.value
+  if (prefIds.length) params.set('preference_ids', prefIds.join(','))
   if (regenOpts?.reason) params.set('regenerate_reason', regenOpts.reason)
   if (regenOpts?.notes) params.set('regenerate_notes', regenOpts.notes)
 
@@ -574,7 +627,7 @@ function resetForm() {
   showRegenDialog.value = false
   regenReason.value = ''
   regenNotes.value = ''
-  regenPrefId.value = ''
+  regenPrefIds.value = []
 }
 
 // 重新生成
@@ -585,7 +638,7 @@ function doRegenerate() {
   startGenerate({
     reason: regenReason.value,
     notes: regenNotes.value,
-    prefId: regenPrefId.value || selectedPrefId.value,
+    prefIds: regenPrefIds.value.length ? regenPrefIds.value : selectedPrefIds.value,
   })
   regenerating.value = false
 }
@@ -783,4 +836,13 @@ async function copyPrompt() {
 .prompt-hint { padding: 8px 20px; font-size: 0.8rem; color: #94a3b8; background: #f8fafc; border-bottom: 1px solid #e2e8f0; }
 .prompt-body { flex: 1; overflow-y: auto; padding: 20px; margin: 0; font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace; font-size: 0.82rem; line-height: 1.6; color: #334155; white-space: pre-wrap; word-wrap: break-word; }
 @keyframes blink { 50% { opacity: 0; } }
+
+/* 多选偏好 */
+.pref-checkbox-list { display: flex; flex-direction: column; gap: 6px; max-height: 200px; overflow-y: auto; border: 1px solid #e2e8f0; border-radius: 6px; padding: 8px 12px; }
+.pref-checkbox-item { display: flex; align-items: center; gap: 6px; padding: 4px 0; cursor: pointer; font-size: 0.85rem; }
+.pref-checkbox-item input[type="checkbox"] { cursor: pointer; }
+.pref-checkbox-label { color: #1e293b; }
+.default-badge-sm { font-size: 0.7rem; color: #d97706; }
+.pref-checkbox-notes { font-size: 0.78rem; color: #94a3b8; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pref-empty { font-size: 0.8rem; color: #94a3b8; padding: 8px 0; text-align: center; }
 </style>

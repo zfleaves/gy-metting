@@ -307,13 +307,13 @@ async function saveSource() {
 }
 
 async function removeSource(s) {
-  if (!confirm(`确定删除来源「${s.name}」？`)) return
   try {
+    await ElMessageBox.confirm(`确定删除来源「${s.name}」？`, '确认删除', { confirmButtonText: '删除', cancelButtonText: '取消', type: 'warning' })
     await deleteYuqueSource(s.id)
     if (selectedSource.value === s.id) selectedSource.value = ''
     sources.value = await listYuqueSources()
   } catch (e) {
-    toast.error('删除失败: ' + (e.message || '未知错误'))
+    if (e !== 'cancel') toast.error('删除失败: ' + (e.message || '未知错误'))
   }
 }
 

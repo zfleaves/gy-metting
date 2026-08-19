@@ -66,8 +66,8 @@ def load_task_context(task_id: str) -> dict:
                     if snap and snap.content_path:
                         try:
                             content = Path(snap.content_path).read_text(encoding="utf-8", errors="replace")
-                            if len(content) > 3000:
-                                content = content[:3000] + f"\n\n...（文档过长，已截断，原文共 {len(content)} 字）"
+                            if len(content) > 5000:
+                                content = content[:5000] + f"\n\n...（文档过长，已截断，原文共 {len(content)} 字）"
                             documents.append({
                                 "title": snap.title,
                                 "content": content,
@@ -94,8 +94,8 @@ def _load_transcript(task: Task) -> str:
             summary = json.loads(task.result_summary)
             text = summary.get("text_preview", "") or summary.get("full_text", "")
             if text:
-                if len(text) > 20000:
-                    text = text[:20000] + f"\n\n...（转写文本过长，已截断，原文共 {len(text)} 字）"
+                if len(text) > 30000:
+                    text = text[:30000] + f"\n\n...（转写文本过长，已截断，原文共 {len(text)} 字）"
                 return text
         except (json.JSONDecodeError, KeyError):
             pass
@@ -104,13 +104,13 @@ def _load_transcript(task: Task) -> str:
     if task.result_path and Path(task.result_path).exists():
         try:
             text = Path(task.result_path).read_text(encoding="utf-8", errors="replace")
-            if len(text) > 20000:
-                text = text[:20000] + f"\n\n...（转写文本过长，已截断）"
+            if len(text) > 30000:
+                text = text[:30000] + f"\n\n...（转写文本过长，已截断）"
             return text
         except Exception:
             pass
 
-    return task.result_summary[:20000] if task.result_summary else ""
+    return task.result_summary[:30000] if task.result_summary else ""
 
 
 def build_messages(
@@ -153,30 +153,38 @@ def build_messages(
     doc_blocks = []
     for d in ctx["documents"]:
         doc_blocks.append(f"### {d['title']}\n\n{d['content']}")
-    docs_text = "\n\n---\n\n".join(doc_blocks) if doc_blocks else "无参考文档"
+    docs_text = "\n\n---\n\n".join(doc_blocks) if doc_blocks else ""
 
-    # 构建 user 消息
-    user_content = f"""【业务背景】
-{ctx['background'] or '无'}
+    # 构建分层消息列表，让 LLM 清晰区分信息优先级
+    messages = []
 
-【参考文档】
-{docs_text}
+    # 第一部分：系统提示词（角色定义 + 输出格式）
+    messages.append({"role": "system", "content": system_content})
 
-【会议转写文本】
-{ctx['transcript'] if ctx['transcript'] else '无转写文本'}
+    # 第二部分：业务背景（低优先级，仅做上下文参考）
+    bg_msg = f"## 业务背景\n\n{ctx['background'] or '无'}"
+    messages.append({"role": "user", "content": bg_msg})
+    messages.append({"role": "assistant", "content": "已收到业务背景信息。"})
 
-请根据以上内容，按照系统提示词的要求整理会议纪要。"""
+    # 第三部分：参考文档（中优先级，有则参考，无则跳过）
+    if docs_text:
+        doc_msg = f"## 参考文档\n\n{docs_text}\n\n注意：文档内容仅作为业务基线，会上未讨论的内容严禁输出评审结论。"
+        messages.append({"role": "user", "content": doc_msg})
+        messages.append({"role": "assistant", "content": "已收到参考文档，将作为业务基线参考。"})
+
+    # 第四部分：会议转写文本（最高优先级，生成纪要的主要依据）
+    transcript_text = ctx['transcript'] if ctx['transcript'] else '无转写文本'
+    user_msg = f"## 会议转写文本\n\n{transcript_text}\n\n"
+    user_msg += "请根据以上所有信息，严格按照系统提示词的要求整理会议纪要。"
+    user_msg += "注意：会议转写文本优先级最高，所有决策、变更、待办必须来源于此。"
 
     # 附加重新生成的原因和注意事项
     if regenerate_reason:
-        user_content += f"\n\n【重新生成原因】\n{regenerate_reason}"
+        user_msg += f"\n\n【重新生成原因】\n{regenerate_reason}"
     if regenerate_notes:
-        user_content += f"\n\n【注意事项】\n{regenerate_notes}"
+        user_msg += f"\n\n【注意事项】\n{regenerate_notes}"
 
-    messages = [
-        {"role": "system", "content": system_content},
-        {"role": "user", "content": user_content},
-    ]
+    messages.append({"role": "user", "content": user_msg})
 
     # 如果有偏好模板，作为 assistant 参考示例
     if extra_context:

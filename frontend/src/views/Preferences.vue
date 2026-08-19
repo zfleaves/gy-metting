@@ -29,7 +29,35 @@
             <span class="card-time">{{ formatTime(p.created_at) }}</span>
           </div>
           <div class="card-name">{{ p.name || '未命名' }}</div>
-          <div v-if="p.notes" class="card-notes">📝 {{ p.notes }}</div>
+
+          <!-- 重新生成的原因 + 要求 -->
+          <div v-if="p.notes" class="notes-block">
+            <div v-for="line in p.notes.split('\n')" :key="line" class="notes-line">
+              <template v-if="line.startsWith('🔄')">
+                <span class="note-label reason">🔄 原因</span>
+                <span class="note-text">{{ line.replace('🔄 原因: ', '') }}</span>
+              </template>
+              <template v-else-if="line.startsWith('📌')">
+                <span class="note-label requirement">📌 要求</span>
+                <span class="note-text">{{ line.replace('📌 要求: ', '') }}</span>
+              </template>
+              <template v-else>
+                <span class="note-text">{{ line }}</span>
+              </template>
+            </div>
+          </div>
+
+          <!-- 内容预览 -->
+          <div class="card-preview">
+            <pre class="preview-text">{{ (p.content || '').slice(0, 300) }}{{ (p.content || '').length > 300 ? '...' : '' }}</pre>
+          </div>
+
+          <!-- 来源信息 -->
+          <div v-if="p.source_minutes_id" class="source-info">
+            <span class="source-label">来源纪要</span>
+            <a :href="`/minutes/${p.source_minutes_id}`" target="_blank" class="source-link" @click.stop>查看原文 →</a>
+          </div>
+
           <div class="card-actions">
             <button class="btn-adopt" @click.stop="doAdopt(p)">✅ 采纳</button>
             <button class="btn-del-sm" @click.stop="doDelete(p)">🗑 删除</button>
@@ -60,10 +88,30 @@
             <span class="card-time">{{ formatTime(p.updated_at) }}</span>
           </div>
           <div class="card-name">{{ p.name || '未命名' }}</div>
-          <div v-if="p.notes" class="card-notes">📝 {{ p.notes }}</div>
+
+          <div v-if="p.notes" class="notes-block">
+            <div v-for="line in p.notes.split('\n')" :key="line" class="notes-line">
+              <template v-if="line.startsWith('🔄')">
+                <span class="note-label reason">🔄 原因</span>
+                <span class="note-text">{{ line.replace('🔄 原因: ', '') }}</span>
+              </template>
+              <template v-else-if="line.startsWith('📌')">
+                <span class="note-label requirement">📌 要求</span>
+                <span class="note-text">{{ line.replace('📌 要求: ', '') }}</span>
+              </template>
+              <template v-else>
+                <span class="note-text">{{ line }}</span>
+              </template>
+            </div>
+          </div>
 
           <div class="card-preview">
             <pre class="preview-text">{{ (p.content || '').slice(0, 300) }}{{ (p.content || '').length > 300 ? '...' : '' }}</pre>
+          </div>
+
+          <div v-if="p.source_minutes_id" class="source-info">
+            <span class="source-label">来源纪要</span>
+            <a :href="`/minutes/${p.source_minutes_id}`" target="_blank" class="source-link" @click.stop>查看原文 →</a>
           </div>
 
           <div class="card-actions">
@@ -95,7 +143,7 @@
           </div>
           <div class="field">
             <label>备注</label>
-            <textarea v-model="editForm.notes" class="form-textarea" rows="2" placeholder="偏好说明"></textarea>
+            <textarea v-model="editForm.notes" class="form-textarea" rows="2" placeholder="偏好说明，会显示在生成页面的偏好描述中"></textarea>
           </div>
           <div class="field">
             <label>偏好内容（Markdown）</label>
@@ -174,13 +222,17 @@ async function doSetDefault(p) {
 }
 
 async function doDelete(p) {
-  if (!confirm(`确定删除「${p.name || '未命名'}」？`)) return
   try {
+    await ElMessageBox.confirm(
+      `确定删除「${p.name || '未命名'}」？`,
+      '确认删除',
+      { confirmButtonText: '删除', cancelButtonText: '取消', type: 'warning' }
+    )
     await deletePreference(p.id)
-    toast.success('已删除')
+    ElMessage.success('已删除')
     loadData()
-  } catch (e) {
-    toast.error('删除失败: ' + (e.message || '未知错误'))
+  } catch {
+    // 用户取消
   }
 }
 
@@ -211,7 +263,7 @@ async function doSaveEdit() {
 
 function formatTime(t) {
   if (!t) return ''
-  const d = new Date(t)
+  const d = new Date(t + 'Z')
   return d.toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })
 }
 </script>
@@ -237,16 +289,32 @@ function formatTime(t) {
 .candidate-card:hover { border-color: #4f46e5; }
 .candidate-card.selected { border-color: #4f46e5; background: #eef2ff; }
 .card-header { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
-.card-badge { font-size: 0.75rem; background: #e2e8f0; color: #64748b; padding: 1px 8px; border-radius: 3px; font-weight: 600; }
-.card-type { font-size: 0.72rem; background: #eef2ff; color: #4f46e5; padding: 1px 6px; border-radius: 3px; }
-.card-time { font-size: 0.72rem; color: #94a3b8; margin-left: auto; }
+.card-badge { font-size: 0.75rem; background: #e2e8f0; color: #64748b; padding: 1px 8px; border-radius: 3px; font-weight: 600; flex-shrink: 0; }
+.card-type { font-size: 0.72rem; background: #eef2ff; color: #4f46e5; padding: 1px 6px; border-radius: 3px; flex-shrink: 0; }
+.card-time { font-size: 0.72rem; color: #94a3b8; margin-left: auto; flex-shrink: 0; }
 .card-name { font-size: 0.9rem; color: #1e293b; font-weight: 500; margin-bottom: 4px; }
-.card-notes { font-size: 0.78rem; color: #d97706; margin-bottom: 6px; }
+
+/* 原因 + 要求展示 */
+.notes-block { margin-bottom: 8px; display: flex; flex-direction: column; gap: 3px; }
+.notes-line { display: flex; align-items: flex-start; gap: 4px; font-size: 0.78rem; line-height: 1.4; }
+.note-label { flex-shrink: 0; padding: 0 6px; border-radius: 3px; font-size: 0.7rem; font-weight: 600; }
+.note-label.reason { background: #fef3c7; color: #d97706; }
+.note-label.requirement { background: #dbeafe; color: #2563eb; }
+.note-text { color: #475569; word-break: break-all; }
+
+/* 内容预览 */
+.card-preview { margin-top: 6px; }
+.preview-text { font-size: 0.75rem; color: #64748b; background: #f8fafc; padding: 8px; border-radius: 4px; max-height: 120px; overflow-y: auto; margin: 0; font-family: 'SFMono-Regular', Consolas, monospace; line-height: 1.4; white-space: pre-wrap; word-break: break-word; }
+
+/* 来源信息 */
+.source-info { margin-top: 6px; display: flex; align-items: center; gap: 6px; font-size: 0.75rem; }
+.source-label { background: #f0fdf4; color: #16a34a; padding: 1px 6px; border-radius: 3px; font-weight: 500; }
+.source-link { color: #4f46e5; text-decoration: none; }
+.source-link:hover { text-decoration: underline; }
+
 .card-actions { display: flex; gap: 6px; margin-top: 8px; }
 .card-actions button { padding: 4px 10px; border: 1px solid #e2e8f0; background: #fff; border-radius: 4px; cursor: pointer; font-size: 0.75rem; color: #64748b; }
 .card-actions button:hover { border-color: #4f46e5; color: #4f46e5; }
-.card-preview { margin-top: 8px; }
-.preview-text { font-size: 0.75rem; color: #64748b; background: #f8fafc; padding: 8px; border-radius: 4px; max-height: 120px; overflow-y: auto; margin: 0; font-family: 'SFMono-Regular', Consolas, monospace; line-height: 1.4; }
 
 /* 已采纳卡片 */
 .adopted-card { cursor: default; }

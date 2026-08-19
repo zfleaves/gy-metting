@@ -44,7 +44,7 @@ class Settings(BaseSettings):
     LLM_MODEL: str = "gpt-4o"
     LLM_DEFAULT_TEMPERATURE: float = 0.3
     LLM_DEFAULT_MAX_TOKENS: int = 4096
-    LLM_TIMEOUT_SECONDS: int = 120
+    LLM_TIMEOUT_SECONDS: int = 300
     LLM_MAX_RETRIES: int = 3
 
     # 备用模型

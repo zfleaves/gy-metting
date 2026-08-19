@@ -32,11 +32,35 @@ async function request(url, options = {}) {
   if (token) {
     headers['Authorization'] = `Bearer ${token}`
   }
+  const { headers: _unused, ...restOptions } = options
   const res = await fetch(`${BASE_URL}${url}`, {
     headers,
-    ...options,
+    ...restOptions,
   })
   if (res.status === 401) {
+    // 尝试无感刷新 Token
+    const refreshed = await tryRefreshToken()
+    if (refreshed) {
+      // 重试原请求
+      headers['Authorization'] = `Bearer ${getToken()}`
+      const retryRes = await fetch(`${BASE_URL}${url}`, {
+        headers,
+        ...restOptions,
+      })
+      if (retryRes.ok) {
+        return retryRes.json()
+      }
+      if (retryRes.status === 401) {
+        clearToken()
+        if (window.location.pathname !== '/login') {
+          window.location.href = '/login'
+        }
+        throw new Error('未登录或登录已过期')
+      }
+      const err = await retryRes.json().catch(() => ({ detail: '请求失败' }))
+      throw new Error(err.detail || `HTTP ${retryRes.status}`)
+    }
+    // 刷新失败，跳转登录
     clearToken()
     if (window.location.pathname !== '/login') {
       window.location.href = '/login'
@@ -48,6 +72,35 @@ async function request(url, options = {}) {
     throw new Error(err.detail || `HTTP ${res.status}`)
   }
   return res.json()
+}
+
+// 无感刷新 Token
+let refreshing = null
+async function tryRefreshToken() {
+  const token = getToken()
+  if (!token) return false
+  // 防止并发刷新
+  if (refreshing) return refreshing
+  refreshing = (async () => {
+    try {
+      const res = await fetch(`${BASE_URL}/api/auth/refresh`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+      })
+      if (!res.ok) return false
+      const data = await res.json()
+      if (data.token) {
+        setToken(data.token)
+        return true
+      }
+      return false
+    } catch {
+      return false
+    } finally {
+      refreshing = null
+    }
+  })()
+  return refreshing
 }
 
 // 登录

@@ -35,7 +35,7 @@ JWT_ALGORITHM = "HS256"
 JWT_EXPIRE_HOURS = 24
 
 # 公开接口（无需认证）
-PUBLIC_PATHS = {"/health", "/api/auth/login", "/api/auth/register", "/docs", "/openapi.json", "/redoc"}
+PUBLIC_PATHS = {"/health", "/api/auth/login", "/api/auth/register", "/api/auth/refresh", "/docs", "/openapi.json", "/redoc"}
 
 
 # ============================================================
@@ -129,6 +129,31 @@ async def me(request: Request):
     if not user:
         raise HTTPException(status_code=401, detail="未登录")
     return user
+
+
+@router.post("/refresh")
+async def refresh_token(request: Request):
+    """无感刷新 Token：用当前 token 换新 token（无需重新登录）"""
+    auth_header = request.headers.get("Authorization", "")
+    if not auth_header.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="无效的认证头")
+
+    token = auth_header[7:]
+    try:
+        # 允许过期 token 解码（不验证 exp）
+        payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM], options={"verify_exp": False})
+        user_id = payload.get("user_id")
+        username = payload.get("username")
+        role = payload.get("role")
+        if not user_id or not username or not role:
+            raise HTTPException(status_code=401, detail="Token 无效")
+
+        # 签发新 token
+        new_token = create_token(user_id, username, role)
+        logger.info("Token 已刷新: user=%s", username)
+        return {"token": new_token}
+    except jwt.InvalidTokenError:
+        raise HTTPException(status_code=401, detail="Token 无效")
 
 
 @router.post("/register")

@@ -97,7 +97,7 @@ async def generate_minutes(
     custom_prompt: Optional[str] = Query(None, description="自定义提示词"),
     temperature: float = Query(0.3, ge=0.0, le=2.0),
     max_tokens: int = Query(8192, ge=256, le=32768),
-    preference_id: Optional[str] = Query(None, description="使用的偏好 ID"),
+    preference_ids: Optional[str] = Query(None, description="使用的偏好 ID，多个用逗号分隔"),
     regenerate_reason: Optional[str] = Query(None, description="重新生成原因"),
     regenerate_notes: Optional[str] = Query(None, description="重新生成注意事项"),
 ):
@@ -113,19 +113,32 @@ async def generate_minutes(
 
         try:
             from src.llm.context import build_messages
-            # 如果传入了偏好，加载偏好内容作为额外上下文
+            # 加载多个偏好作为额外上下文
             extra_context = ""
-            if preference_id:
-                db_ctx = SessionLocal()
-                try:
-                    pref = db_ctx.query(MinutesPreference).filter(
-                        MinutesPreference.id == preference_id,
-                        MinutesPreference.user_id == user["user_id"],
-                    ).first()
-                    if pref and pref.content:
-                        extra_context = f"\n\n【参考偏好模板】\n以下是一个你之前生成的、用户采纳的偏好纪要格式，请参考其风格和结构：\n\n{pref.content[:2000]}"
-                finally:
-                    db_ctx.close()
+            if preference_ids:
+                id_list = [pid.strip() for pid in preference_ids.split(",") if pid.strip()]
+                if id_list:
+                    db_ctx = SessionLocal()
+                    try:
+                        prefs = (
+                            db_ctx.query(MinutesPreference)
+                            .filter(
+                                MinutesPreference.id.in_(id_list),
+                                MinutesPreference.user_id == user["user_id"],
+                            )
+                            .all()
+                        )
+                        if prefs:
+                            blocks = []
+                            for i, pref in enumerate(prefs):
+                                title_part = pref.name or f"偏好{i+1}"
+                                content_part = (pref.content or "")[:2000]
+                                blocks.append(f"【参考偏好{i+1}: {title_part}】\n\n{content_part}")
+                            extra_context = "\n\n---\n\n".join(blocks)
+                            if extra_context:
+                                extra_context = f"\n\n以下是你之前生成的、用户采纳的偏好纪要格式，请参考其风格和结构：\n\n{extra_context}"
+                    finally:
+                        db_ctx.close()
 
             messages = build_messages(
                 task_id=task_id,
@@ -188,23 +201,37 @@ async def generate_minutes(
                 db.refresh(record)
                 record_id = record.id
 
-                # 自动保存到未采纳偏好池
-                pref = MinutesPreference(
-                    user_id=user["user_id"],
-                    name=f"候选-{title[:20]}",
-                    meeting_type=meeting_type_val,
-                    content=full_text,
-                    temperature=temperature,
-                    max_tokens=max_tokens,
-                    custom_prompt=custom_prompt,
-                    notes=regenerate_reason or "",
-                    is_adopted="0",
-                    source_minutes_id=record_id,
-                )
-                db.add(pref)
-                db.commit()
-                db.refresh(pref)
-                pref_id = pref.id
+                # 只有重新生成才保存到未采纳偏好池
+                pref_id = None
+                if regenerate_reason:
+                    notes_parts = []
+                    if regenerate_reason:
+                        notes_parts.append(f"🔄 原因: {regenerate_reason}")
+                    if regenerate_notes:
+                        notes_parts.append(f"📌 要求: {regenerate_notes}")
+                    pref_notes = "\n".join(notes_parts)
+
+                    pref_name = f"候选-{regenerate_reason}"
+                    if title:
+                        short_title = title[:15]
+                        pref_name += f": {short_title}"
+
+                    pref = MinutesPreference(
+                        user_id=user["user_id"],
+                        name=pref_name,
+                        meeting_type=meeting_type_val,
+                        content=full_text,
+                        temperature=temperature,
+                        max_tokens=max_tokens,
+                        custom_prompt=custom_prompt,
+                        notes=pref_notes,
+                        is_adopted="0",
+                        source_minutes_id=record_id,
+                    )
+                    db.add(pref)
+                    db.commit()
+                    db.refresh(pref)
+                    pref_id = pref.id
             finally:
                 db.close()
 

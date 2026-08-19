@@ -101,12 +101,12 @@ async function doCreate() {
 }
 
 async function doDelete(u) {
-  if (!confirm(`确定删除用户「${u.username}」？`)) return
   try {
+    await ElMessageBox.confirm(`确定删除用户「${u.username}」？`, '确认删除', { confirmButtonText: '删除', cancelButtonText: '取消', type: 'warning' })
     await deleteUser(u.id)
     users.value = await listUsers()
   } catch (e) {
-    toast.error(e.message)
+    if (e !== 'cancel') toast.error(e.message)
   }
 }
 
