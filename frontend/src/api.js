@@ -163,14 +163,24 @@ export function uploadAudio(file) {
     method: 'POST',
     body: form,
     headers,
-  }).then(r => {
+  }).then(async r => {
     if (r.status === 401) {
       clearToken()
       window.location.href = '/login'
       throw new Error('未登录')
     }
+    if (!r.ok) {
+      const err = await r.json().catch(() => ({ detail: '上传失败' }))
+      throw new Error(err.detail || `HTTP ${r.status}`)
+    }
     return r.json()
   })
+}
+
+// 录音上传（Blob → File → 复用 uploadAudio）
+export function uploadRecording(blob, filename) {
+  const file = new File([blob], filename, { type: 'audio/wav' })
+  return uploadAudio(file)
 }
 
 // 提交任务

@@ -32,6 +32,7 @@ AUDIO_MAGIC_BYTES = {
     b"\xff\xf2": "mp3",     # MP3 (MPEG v2.5)
     b"RIFF": "wav",         # WAV
     b"ftyp": "m4a",         # M4A/MP4
+    b"\x1a\x45\xdf\xa3": "webm",  # WebM (EBML header)
 }
 
 
@@ -60,6 +61,10 @@ def _validate_audio_format(filename: str, content: bytes) -> str:
         if content.startswith(magic):
             detected = fmt
             break
+
+    # M4A/MP4 特殊处理：ftyp 可能在 offset 4（前面有4字节大小）
+    if detected is None and b"ftyp" in content[:12]:
+        detected = "m4a"
 
     if detected is None:
         raise HTTPException(

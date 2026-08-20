@@ -101,7 +101,7 @@ class Settings(BaseSettings):
     # ============================================================
     MAX_AUDIO_SIZE_MB: int = 200
     MAX_DOC_SIZE_MB: int = 20
-    ALLOWED_AUDIO_FORMATS: str = "mp3,wav,m4a"
+    ALLOWED_AUDIO_FORMATS: str = "mp3,wav,m4a,webm"
     ALLOWED_DOC_FORMATS: str = "docx,pdf,txt,md"
 
     # ============================================================

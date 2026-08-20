@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>录音测试工具</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; background: #f5f5f5; display: flex; justify-content: center; padding: 40px; }
+.card { background: #fff; border-radius: 16px; padding: 32px; width: 480px; max-width: 100%; box-shadow: 0 4px 24px rgba(0,0,0,0.1); }
+h1 { font-size: 1.3rem; color: #1e293b; margin-bottom: 24px; text-align: center; }
+.section { margin-bottom: 24px; padding: 20px; border: 1px solid #e2e8f0; border-radius: 12px; }
+.section-title { font-size: 0.9rem; font-weight: 600; color: #1e293b; margin-bottom: 12px; }
+.btn { padding: 10px 24px; border: none; border-radius: 8px; font-size: 0.9rem; cursor: pointer; margin: 4px; }
+.btn-record { background: #dc2626; color: #fff; }
+.btn-record:hover { background: #b91c1c; }
+.btn-stop { background: #64748b; color: #fff; }
+.btn-play { background: #4f46e5; color: #fff; }
+.btn-play:hover { background: #4338ca; }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.timer { font-size: 2rem; font-weight: 700; color: #1e293b; text-align: center; margin: 12px 0; font-variant-numeric: tabular-nums; }
+.status { text-align: center; font-size: 0.85rem; color: #64748b; margin: 8px 0; }
+.wave { display: flex; align-items: center; justify-content: center; gap: 2px; height: 40px; margin: 12px 0; }
+.wave-bar { width: 4px; border-radius: 2px; background: #4f46e5; transition: height 0.08s; min-height: 2px; }
+.audio-player { width: 100%; margin: 12px 0; }
+.log { font-size: 0.78rem; color: #94a3b8; background: #f8fafc; padding: 12px; border-radius: 8px; max-height: 120px; overflow-y: auto; font-family: monospace; line-height: 1.5; }
+.log-entry { margin: 2px 0; }
+.log-error { color: #dc2626; }
+.log-success { color: #16a34a; }
+.info-row { display: flex; justify-content: space-between; font-size: 0.8rem; color: #64748b; margin: 4px 0; }
+</style>
+</head>
+<body>
+<div class="card">
+  <h1>🎤 录音测试工具</h1>
+
+  <div class="section">
+    <div class="section-title">麦克风状态</div>
+    <div class="info-row"><span>MediaRecorder 支持</span><span id="mediaRecorderSupport">检测中...</span></div>
+    <div class="info-row"><span>支持的格式</span><span id="supportedFormats">检测中...</span></div>
+    <div class="info-row"><span>麦克风权限</span><span id="micStatus">未请求</span></div>
+    <div class="info-row" style="flex-direction:column;align-items:stretch;gap:4px;">
+      <span>选择录音设备</span>
+      <select id="deviceSelect" style="padding:6px 8px;border:1px solid #e2e8f0;border-radius:4px;font-size:0.85rem;"></select>
+      <button class="btn" onclick="loadDevices()" style="padding:4px 12px;font-size:0.78rem;">🔄 刷新设备列表</button>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">录音测试</div>
+    <div style="text-align:center;">
+      <button class="btn btn-record" id="btnRecord" onclick="startRecording()">🎤 开始录音</button>
+      <button class="btn btn-stop" id="btnStop" onclick="stopRecording()" disabled>⏹ 停止</button>
+    </div>
+    <div class="timer" id="timer">00:00</div>
+    <div class="status" id="status">点击「开始录音」测试</div>
+    <div class="wave" id="wave"></div>
+  </div>
+
+  <div class="section" id="playbackSection" style="display:none;">
+    <div class="section-title">回放测试</div>
+    <audio class="audio-player" id="audioPlayer" controls></audio>
+    <div style="text-align:center;">
+      <button class="btn btn-play" onclick="playRecording()">▶ 播放录音</button>
+      <button class="btn btn-play" onclick="downloadRecording()">💾 下载 WAV</button>
+    </div>
+    <div class="info-row"><span>录音时长</span><span id="recordDuration">0 秒</span></div>
+    <div class="info-row"><span>文件大小</span><span id="fileSize">0 KB</span></div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">运行日志</div>
+    <div class="log" id="log"></div>
+  </div>
+</div>
+
+<script>
+var mediaRecorder = null
+var mediaStream = null
+var audioContext = null
+var analyserNode = null
+var recordChunks = []
+var recordTimer = null
+var recordStartTime = 0
+var recordBlob = null
+const waveBars = 40
+
+// 初始化波形
+function initWave() {
+  const wave = document.getElementById('wave')
+  wave.innerHTML = ''
+  for (let i = 0; i < waveBars; i++) {
+    const bar = document.createElement('div')
+    bar.className = 'wave-bar'
+    bar.style.height = '2px'
+    wave.appendChild(bar)
+  }
+}
+initWave()
+
+function log(msg, type = '') {
+  const el = document.getElementById('log')
+  const entry = document.createElement('div')
+  entry.className = 'log-entry' + (type ? ' log-' + type : '')
+  entry.textContent = '[' + new Date().toLocaleTimeString() + '] ' + msg
+  el.appendChild(entry)
+  el.scrollTop = el.scrollHeight
+}
+
+// 加载音频设备列表
+async function loadDevices() {
+  try {
+    // 先请求权限
+    const tempStream = await navigator.mediaDevices.getUserMedia({ audio: true })
+    tempStream.getTracks().forEach(t => t.stop())
+    const devices = await navigator.mediaDevices.enumerateDevices()
+    const audioInputs = devices.filter(d => d.kind === 'audioinput')
+    const select = document.getElementById('deviceSelect')
+    select.innerHTML = ''
+    audioInputs.forEach((d, i) => {
+      const opt = document.createElement('option')
+      opt.value = d.deviceId
+      opt.textContent = d.label || ('麦克风 ' + (i + 1))
+      select.appendChild(opt)
+    })
+    // 自动选择：优先选带"默认"的麦克风，否则选第一个非立体声混音的
+    let mic = audioInputs.find(d => d.label.includes('默认') && !d.label.includes('立体声'))
+    if (!mic) {
+      mic = audioInputs.find(d => !d.label.includes('立体声') && !d.label.includes('混音'))
+    }
+    if (mic) {
+      select.value = mic.deviceId
+      log('自动选择: ' + mic.label)
+    }
+    log('找到 ' + audioInputs.length + ' 个音频输入设备')
+  } catch (e) {
+    log('获取设备列表失败: ' + e.message, 'error')
+  }
+}
+
+// 检测浏览器支持
+function checkSupport() {
+  const mr = typeof MediaRecorder !== 'undefined'
+  document.getElementById('mediaRecorderSupport').textContent = mr ? '✅ 支持' : '❌ 不支持'
+  document.getElementById('mediaRecorderSupport').style.color = mr ? '#16a34a' : '#dc2626'
+
+  if (mr) {
+    const formats = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4', 'audio/ogg;codecs=opus']
+    const supported = formats.filter(f => MediaRecorder.isTypeSupported(f))
+    document.getElementById('supportedFormats').textContent = supported.length > 0
+      ? supported.join(', ')
+      : '仅默认格式'
+  }
+}
+checkSupport()
+loadDevices()
+log('页面加载完成，检测浏览器支持...')
+
+async function startRecording() {
+  try {
+    log('请求麦克风权限...')
+    const deviceId = document.getElementById('deviceSelect').value
+    const constraints = { audio: true }
+    if (deviceId) {
+      constraints.audio = { deviceId: { exact: deviceId } }
+    }
+    mediaStream = await navigator.mediaDevices.getUserMedia(constraints)
+    log('✅ 麦克风权限已获取', 'success')
+
+    const track = mediaStream.getAudioTracks()[0]
+    log('麦克风: ' + track.label + ' enabled=' + track.enabled + ' muted=' + track.muted + ' readyState=' + track.readyState)
+    // 如果麦克风被静音，尝试取消静音
+    if (track.muted) {
+      log('⚠️ 麦克风被静音，尝试取消静音...', 'error')
+    }
+    // 监听音频电平
+    let audioCheckTimer = setInterval(() => {
+      if (analyserNode) {
+        try {
+          const data = new Uint8Array(analyserNode.frequencyBinCount)
+          analyserNode.getByteFrequencyData(data)
+          const sum = data.reduce((a, b) => a + b, 0)
+          if (sum > 0) {
+            log('✅ 检测到音频电平: ' + sum)
+            clearInterval(audioCheckTimer)
+          }
+        } catch(e) {}
+      }
+    }, 500)
+    // 3秒后停止检测
+    setTimeout(() => clearInterval(audioCheckTimer), 3000)
+    document.getElementById('micStatus').textContent = '✅ 已授权 (' + track.label + ')'
+    document.getElementById('micStatus').style.color = '#16a34a'
+
+    // 创建音频分析器用于波形
+    try {
+      audioContext = new AudioContext()
+      log('AudioContext 创建: state=' + audioContext.state)
+      if (audioContext.state === 'suspended') {
+        await audioContext.resume()
+        log('AudioContext 恢复: state=' + audioContext.state)
+      }
+      const source = audioContext.createMediaStreamSource(mediaStream)
+      analyserNode = audioContext.createAnalyser()
+      analyserNode.fftSize = 64
+      source.connect(analyserNode)
+      log('✅ 音频分析器已连接')
+    } catch (e) {
+      log('❌ 波形分析器创建失败: ' + e.message, 'error')
+    }
+
+    // 创建 MediaRecorder（不传参数，完全默认）
+    mediaRecorder = new MediaRecorder(mediaStream)
+    log('MediaRecorder 已创建, mimeType: ' + mediaRecorder.mimeType)
+
+    recordChunks = []
+    mediaRecorder.ondataavailable = (e) => {
+      if (e.data && e.data.size > 0) {
+        recordChunks.push(e.data)
+        log('收到数据块: ' + e.data.size + ' bytes, 总数: ' + recordChunks.length + ' 块')
+      }
+    }
+
+    mediaRecorder.onstop = () => {
+      const totalSize = recordChunks.reduce((sum, c) => sum + c.size, 0)
+      log('录音停止, 共 ' + recordChunks.length + ' 块, ' + totalSize + ' bytes')
+
+      if (recordChunks.length === 0 || totalSize < 100) {
+        log('❌ 录音数据异常: 无有效音频数据', 'error')
+        document.getElementById('status').textContent = '❌ 录音失败: 未捕获到音频数据'
+        document.getElementById('status').style.color = '#dc2626'
+        releaseMic()
+        return
+      }
+
+      const mimeType = mediaRecorder.mimeType || 'audio/webm'
+      recordBlob = new Blob(recordChunks, { type: mimeType })
+      log('✅ 录音完成: ' + (recordBlob.size / 1024).toFixed(1) + ' KB, 格式: ' + mimeType, 'success')
+
+      // 显示回放
+      document.getElementById('playbackSection').style.display = 'block'
+      const audioUrl = URL.createObjectURL(recordBlob)
+      document.getElementById('audioPlayer').src = audioUrl
+      document.getElementById('recordDuration').textContent = Math.floor((Date.now() - recordStartTime) / 1000) + ' 秒'
+      document.getElementById('fileSize').textContent = (recordBlob.size / 1024).toFixed(1) + ' KB'
+      document.getElementById('status').textContent = '✅ 录音完成，可播放试听'
+      document.getElementById('status').style.color = '#16a34a'
+
+      releaseMic()
+    }
+
+    mediaRecorder.onerror = (e) => {
+      log('❌ MediaRecorder 错误: ' + JSON.stringify(e), 'error')
+      document.getElementById('status').textContent = '❌ 录音出错'
+      releaseMic()
+    }
+
+    // 开始录音
+    mediaRecorder.start()
+    recordStartTime = Date.now()
+    log('✅ 录音开始...', 'success')
+    document.getElementById('status').textContent = '🔴 录音中... 请说话'
+    document.getElementById('status').style.color = '#dc2626'
+    document.getElementById('btnRecord').disabled = true
+    document.getElementById('btnStop').disabled = false
+
+    // 计时器 + 波形
+    let seconds = 0
+    recordTimer = setInterval(() => {
+      seconds++
+      document.getElementById('timer').textContent = String(Math.floor(seconds / 60)).padStart(2, '0') + ':' + String(seconds % 60).padStart(2, '0')
+
+      // 更新波形
+      if (analyserNode) {
+        try {
+          const data = new Uint8Array(analyserNode.frequencyBinCount)
+          analyserNode.getByteFrequencyData(data)
+          const bars = document.querySelectorAll('.wave-bar')
+          for (let i = 0; i < bars.length && i < data.length; i++) {
+            bars[i].style.height = Math.max(2, Math.round(data[i] / 255 * 36)) + 'px'
+          }
+        } catch (e) { /* ignore */ }
+      }
+    }, 100)
+
+  } catch (e) {
+    const msg = e.name === 'NotAllowedError' ? '麦克风权限被拒绝，请在浏览器设置中允许' :
+                e.name === 'NotFoundError' ? '未检测到麦克风' :
+                '启动失败: ' + e.message
+    log('❌ ' + msg, 'error')
+    document.getElementById('status').textContent = '❌ ' + msg
+    document.getElementById('status').style.color = '#dc2626'
+    document.getElementById('micStatus').textContent = '❌ 权限被拒'
+    document.getElementById('micStatus').style.color = '#dc2626'
+  }
+}
+
+function stopRecording() {
+  if (recordTimer) { clearInterval(recordTimer); recordTimer = null }
+  document.getElementById('btnRecord').disabled = false
+  document.getElementById('btnStop').disabled = true
+  if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+    mediaRecorder.stop()
+  }
+}
+
+function playRecording() {
+  const audio = document.getElementById('audioPlayer')
+  audio.play()
+  log('播放录音...')
+}
+
+function downloadRecording() {
+  if (!recordBlob) return
+  const a = document.createElement('a')
+  a.href = URL.createObjectURL(recordBlob)
+  a.download = 'test_recording.wav'
+  a.click()
+  log('下载录音文件')
+}
+
+function releaseMic() {
+  if (mediaStream) {
+    mediaStream.getTracks().forEach(t => t.stop())
+    mediaStream = null
+  }
+  if (audioContext) {
+    audioContext.close().catch(() => {})
+    audioContext = null
+    analyserNode = null
+  }
+  document.getElementById('btnRecord').disabled = false
+  document.getElementById('btnStop').disabled = true
+}
+</script>
+</body>
+</html>

@@ -10,7 +10,7 @@ from typing import AsyncGenerator
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import FileResponse, JSONResponse
 
 from src.config import get_config
 from src.log_utils import get_logger, set_request_id, setup_logging
@@ -137,9 +137,17 @@ def create_app() -> FastAPI:
             "disk_free_mb": round(free_mb, 1),
         }
 
-    # 前端静态文件（SPA 模式）
-    from fastapi.staticfiles import StaticFiles
+    # 前端静态文件目录
     frontend_dir = Path(__file__).resolve().parent.parent / "frontend" / "dist"
+
+    # 测试页面路由（必须在 SPA 中间件之前注册）
+    test_html = frontend_dir / "recorder-test.html"
+    if test_html.exists():
+        @app.get("/recorder-test")
+        async def recorder_test():
+            return FileResponse(str(test_html))
+
+    from fastapi.staticfiles import StaticFiles
     if frontend_dir.exists():
         assets_dir = frontend_dir / "assets"
         if assets_dir.exists():
@@ -154,7 +162,6 @@ def create_app() -> FastAPI:
                 if not path.startswith("/api/") and path != "/health":
                     index_path = frontend_dir / "index.html"
                     if index_path.exists():
-                        from fastapi.responses import FileResponse
                         return FileResponse(str(index_path))
             return response
 
