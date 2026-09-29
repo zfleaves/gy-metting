@@ -32,37 +32,67 @@ def _get_engine():
 
 async def handle_asr_task(task_id: str, params: Dict[str, Any]) -> Dict[str, Any]:
     """
-    处理 ASR 转写任务。重 CPU 部分通过线程池执行。
+    处理 ASR 转写任务。支持单个或多个音频文件合并转写。
+    重 CPU 部分通过线程池执行。
     """
-    audio_path = params.get("audio_path")
-    if not audio_path:
-        raise ValueError("缺少 audio_path 参数")
+    audio_paths = params.get("audio_paths") or (
+        [params["audio_path"]] if params.get("audio_path") else None
+    )
+    if not audio_paths:
+        raise ValueError("缺少 audio_path 或 audio_paths 参数")
 
-    if not os.path.exists(audio_path):
-        raise FileNotFoundError(f"音频文件不存在: {audio_path}")
+    for p in audio_paths:
+        if not os.path.exists(p):
+            raise FileNotFoundError(f"音频文件不存在: {p}")
 
     # 更新进度：加载模型
-    _update_progress(task_id, 0.1)
+    _update_progress(task_id, 0.05)
 
-    # 模型加载 → 线程池（避免阻塞事件循环）
+    # 模型加载 → 线程池
     engine = await asyncio.to_thread(_get_engine)
 
-    # 更新进度：开始转写
-    _update_progress(task_id, 0.2)
+    all_segments = []
+    full_text_parts = []
+    total_duration = 0.0
+    time_offset = 0.0
+    file_count = len(audio_paths)
+    is_merged = file_count > 1
 
-    # 节流进度回调
-    _throttle_state = {"last_db_write": 0.0}
+    for idx, audio_path in enumerate(audio_paths):
+        # 更新进度：开始转写当前文件
+        progress_start = 0.1 + (idx / file_count) * 0.7
+        _update_progress(task_id, progress_start)
 
-    def _on_progress(p: float) -> None:
-        now = time.time()
-        if now - _throttle_state["last_db_write"] >= 2.0:
-            _update_progress(task_id, round(p, 2))
-            _throttle_state["last_db_write"] = now
+        # 节流进度回调
+        _throttle_state = {"last_db_write": 0.0}
 
-    # 转写 → 线程池
-    result = await asyncio.to_thread(
-        engine.transcribe, audio_path, progress_callback=_on_progress
-    )
+        def _on_progress(p: float) -> None:
+            now = time.time()
+            if now - _throttle_state["last_db_write"] >= 2.0:
+                # 将单文件进度映射到整体进度区间
+                mapped = progress_start + (p * 0.7 / file_count)
+                _update_progress(task_id, round(mapped, 2))
+                _throttle_state["last_db_write"] = now
+
+        logger.info("ASR 转写 [%d/%d]: %s", idx + 1, file_count, audio_path)
+
+        # 转写 → 线程池
+        result = await asyncio.to_thread(
+            engine.transcribe, audio_path, progress_callback=_on_progress
+        )
+
+        # 合并 segments（时间戳累加）
+        for seg in result.segments:
+            all_segments.append({
+                "start": round(seg.start + time_offset, 1),
+                "end": round(seg.end + time_offset, 1),
+                "text": seg.text,
+                "file_index": idx,
+            })
+
+        full_text_parts.append(result.text)
+        total_duration += result.duration_seconds
+        time_offset = total_duration
 
     # 更新进度：保存结果
     _update_progress(task_id, 0.9)
@@ -72,41 +102,43 @@ async def handle_asr_task(task_id: str, params: Dict[str, Any]) -> Dict[str, Any
     output_dir = config.resolve_path(config.OUTPUT_DIR) / "transcripts"
     output_dir.mkdir(parents=True, exist_ok=True)
 
+    # 合并文本
+    merged_text = "\n\n".join(full_text_parts)
+
     # 保存纯文本
     txt_path = output_dir / f"{task_id}.txt"
     with open(txt_path, "w", encoding="utf-8") as f:
-        f.write(result.text)
+        f.write(merged_text)
         f.write("\n\n--- 分段 ---\n\n")
-        for seg in result.segments:
-            f.write(f"[{seg.start:.1f}s - {seg.end:.1f}s] {seg.text}\n")
+        for seg in all_segments:
+            file_label = f"[文件{seg['file_index'] + 1}] " if is_merged else ""
+            f.write(f"{file_label}[{seg['start']:.1f}s - {seg['end']:.1f}s] {seg['text']}\n")
 
     # 保存分段 JSON（前端用）
     json_path = output_dir / f"{task_id}.json"
-    segments_data = [
-        {"start": round(seg.start, 1), "end": round(seg.end, 1), "text": seg.text}
-        for seg in result.segments
-    ]
     with open(json_path, "w", encoding="utf-8") as f:
-        json.dump(segments_data, f, ensure_ascii=False, indent=2)
+        json.dump(all_segments, f, ensure_ascii=False, indent=2)
 
     # 自动标记重点（关键词匹配）
-    auto_highlighted = _auto_highlight(segments_data, config.auto_highlight_keywords)
+    auto_highlighted = _auto_highlight(all_segments, config.auto_highlight_keywords)
     highlights_path = output_dir / f"{task_id}_highlights.json"
     with open(highlights_path, "w", encoding="utf-8") as f:
         json.dump({"highlighted_indices": auto_highlighted}, f, ensure_ascii=False)
 
-    logger.info("ASR 结果已保存: %s (%d 字, %d 段, %d 重点)",
-                txt_path, len(result.text), len(segments_data), len(auto_highlighted))
+    logger.info("ASR 结果已保存: %s (%d 字, %d 段, %d 重点, %d 个文件)",
+                txt_path, len(merged_text), len(all_segments), len(auto_highlighted), file_count)
 
     return {
         "result_path": str(txt_path),
         "segments_path": str(json_path),
-        "audio_path": audio_path,
-        "text_preview": result.text[:500],
-        "segments_count": len(segments_data),
+        "audio_path": audio_paths[0] if not is_merged else audio_paths[0],
+        "text_preview": merged_text[:500],
+        "segments_count": len(all_segments),
         "language": result.language,
-        "duration_seconds": result.duration_seconds,
+        "duration_seconds": total_duration,
         "engine": result.engine,
+        "merged": is_merged,
+        "file_count": file_count,
     }
 
 

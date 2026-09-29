@@ -27,162 +27,194 @@
     <!-- ====== 方式一：上传文件 ====== -->
     <div class="section-title">📁 上传音频文件</div>
     <div class="upload-zone"
-      :class="{ dragging, uploaded: !!uploadResult }"
+      :class="{ dragging, 'has-files': uploadedFiles.length > 0 }"
       @dragover.prevent="dragging = true"
       @dragleave.prevent="dragging = false"
       @drop.prevent="onDrop"
     >
-      <div v-if="!uploading && !uploadResult" class="upload-prompt">
+      <!-- 隐藏的文件输入（始终在 DOM 中，供多个按钮触发） -->
+      <input type="file" ref="fileInput" accept=".mp3,.wav,.m4a" @change="onFileSelect" multiple hidden />
+
+      <!-- 空状态：拖拽区 -->
+      <div v-if="uploadedFiles.length === 0 && !uploading" class="upload-prompt">
         <div class="upload-icon">🎙️</div>
-        <p>拖拽音频文件到此处，或点击选择</p>
-        <input type="file" ref="fileInput" accept=".mp3,.wav,.m4a" @change="onFileSelect" hidden />
+        <p>拖拽音频文件到此处，或点击选择（支持多文件）</p>
         <button class="btn-select" @click="$refs.fileInput.click()">选择文件</button>
       </div>
 
+      <!-- 上传中 -->
       <div v-if="uploading" class="upload-progress">
         <div class="spinner"></div>
-        <p>上传中...</p>
+        <p>{{ uploadStatusText }}</p>
       </div>
 
-      <div v-if="uploadResult" class="upload-success">
-        <div class="check-icon">✓</div>
-        <p>上传成功</p>
-        <div v-if="selectedMeetingId && selectedMeetingName" class="meeting-tag">
-          📋 关联会议：{{ selectedMeetingName }}
-        </div>
-        <div class="file-info">
-          <span>{{ uploadResult.filename }}</span>
-          <span>{{ (uploadResult.size_bytes / 1024).toFixed(1) }} KB</span>
-          <span>{{ uploadResult.format }}</span>
-        </div>
-
-        <template v-if="viewState === 'idle'">
-          <div class="action-row">
-            <button class="btn-primary" @click="startTranscribe" :disabled="transcribing">
-              <span v-if="transcribing" class="spinner-sm"></span>
-              {{ transcribing ? '提交中...' : '开始转写' }}
-            </button>
-            <button class="btn-secondary" @click="resetUpload">重新上传</button>
+      <!-- 文件列表（已上传） -->
+      <div v-if="uploadedFiles.length > 0" class="file-list-wrap">
+        <div class="file-list-header">
+          <span class="file-count">已上传 {{ uploadedFiles.length }} 个文件</span>
+          <div v-if="selectedMeetingId && selectedMeetingName" class="meeting-tag-mini">
+            📋 {{ selectedMeetingName }}
           </div>
-        </template>
+        </div>
 
-        <template v-if="viewState === 'processing'">
-          <div class="task-progress">
-            <div class="progress-section">
-              <div class="progress-bar">
-                <div class="progress-fill" :style="{ width: (taskProgress * 100) + '%' }"></div>
+        <div class="file-list">
+          <div v-for="(f, idx) in uploadedFiles" :key="f.file_id"
+            class="file-row"
+            :class="{ 'drag-over': dragOverIdx === idx, 'dragging-src': draggingIdx === idx }"
+            draggable="true"
+            @dragstart="onDragStart(idx, $event)"
+            @dragover.prevent="onDragOver(idx)"
+            @dragleave="onDragLeave(idx)"
+            @drop="onDropFile(idx)"
+            @dragend="onDragEnd"
+          >
+            <span class="drag-handle" title="拖拽排序">⠿</span>
+            <span class="file-order">{{ idx + 1 }}</span>
+            <span class="file-name" :title="f.filename">{{ f.filename }}</span>
+            <span class="file-size">{{ (f.size_bytes / 1024 / 1024).toFixed(1) }} MB</span>
+            <span class="file-format">{{ f.format }}</span>
+            <div class="file-actions">
+              <button class="btn-order" @click="moveUp(idx)" :disabled="idx === 0" title="上移">↑</button>
+              <button class="btn-order" @click="moveDown(idx)" :disabled="idx === uploadedFiles.length - 1" title="下移">↓</button>
+              <button class="btn-remove" @click="removeFile(idx)" title="移除">✕</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- 操作栏 -->
+        <div v-if="batchAllDone" class="batch-all-done">
+          <p>✅ 全部转写完成</p>
+          <div v-for="bt in batchTasks" :key="bt.task_id" class="batch-task-link">
+            <router-link :to="`/task/${bt.task_id}`" class="btn-primary btn-sm">查看「{{ bt.name }}」转写结果 →</router-link>
+            <router-link :to="`/minutes/new?task_id=${bt.task_id}`" class="btn-minutes btn-sm">📝 生成纪要</router-link>
+          </div>
+          <button class="btn-secondary" @click="resetUpload">重新上传</button>
+        </div>
+
+        <div v-else-if="batchTranscribing" class="batch-progress">
+          <div class="batch-progress-header">
+            <span class="spinner-sm"></span>
+            转写进度：{{ batchDoneCount }} / {{ batchTasks.length }}
+          </div>
+          <div class="batch-task-list">
+            <div v-for="bt in batchTasks" :key="bt.task_id" class="batch-task-row" :class="'batch-' + bt.status">
+              <span class="batch-task-icon">{{ taskIcon(bt.status) }}</span>
+              <span class="batch-task-name">{{ bt.name }}</span>
+              <span class="batch-task-status">{{ bt.statusText }}</span>
+              <div v-if="bt.status === 'processing'" class="batch-progress-bar">
+                <div class="progress-fill" :style="{ width: (bt.progress * 100) + '%' }"></div>
               </div>
-              <div class="progress-text">{{ progressLabel(taskProgress) }}</div>
-            </div>
-            <p class="polling-hint">
-              <span class="spinner-sm"></span>
-              {{ pollingCount > 0 ? `已等待 ${formatDuration(pollingCount)}` : '自动刷新中...' }}
-            </p>
-          </div>
-        </template>
-
-        <template v-if="viewState === 'done'">
-          <div class="task-link">
-            <p>✅ 转写完成</p>
-            <div class="task-actions">
-              <router-link :to="`/task/${taskId}`" class="btn-primary">查看转写结果 →</router-link>
-              <router-link :to="`/minutes/new?task_id=${taskId}`" class="btn-minutes">📝 生成纪要</router-link>
             </div>
           </div>
-        </template>
+          <p v-if="batchPollingCount > 0" class="polling-hint">
+            已等待 {{ formatDuration(batchPollingCount) }}
+          </p>
+        </div>
 
-        <template v-if="viewState === 'error'">
-          <div class="task-link">
-            <p class="failed-text">❌ 转写失败</p>
-            <p v-if="taskError" class="error-detail">{{ taskError }}</p>
-            <button class="btn-secondary" @click="resetUpload">重新上传</button>
-          </div>
-        </template>
+        <div v-else class="file-list-actions">
+          <button class="btn-secondary" @click="$refs.fileInput.click()">+ 继续添加</button>
+          <button class="btn-primary" @click="startBatchTranscribe" :disabled="batchTranscribing">
+            <span v-if="batchTranscribing" class="spinner-sm"></span>
+            {{ batchTranscribing ? '提交中...' : '🚀 开始批量转写' }}
+          </button>
+        </div>
       </div>
 
       <div v-if="error" class="error-msg">{{ error }}</div>
+      <div v-if="batchError" class="error-msg">{{ batchError }}</div>
     </div>
 
-    <!-- ====== 方式二：浏览器录音 ====== -->
+    <!-- ====== 方式二：浏览器录音（支持多段） ====== -->
     <div class="section-title" style="margin-top:32px;">🎤 浏览器录音</div>
     <div class="record-zone" v-if="browserSupport">
-      <div class="device-selector" v-if="recordState === 'idle'">
-        <label>选择麦克风：</label>
-        <select v-model="selectedDeviceId" class="device-select">
-          <option value="">-- 默认设备 --</option>
-          <option v-for="d in audioDevices" :key="d.deviceId" :value="d.deviceId">{{ d.label || "麦克风" }}</option>
-        </select>
-        <button class="btn-refresh-devices" @click="loadAudioDevices">刷新</button>
-      </div>
-      <!-- 空闲状态 -->
-      <div v-if="recordState === 'idle'" class="record-prompt">
-        <div class="record-icon">🎤</div>
-        <p>点击下方按钮开始录音，最长 30 分钟</p>
-        <button class="btn-record-start" @click="startRecording">🎤 开始录音</button>
-      </div>
-
       <!-- 录音中 -->
-      <div v-if="recordState === 'recording' || recordState === 'paused'" class="record-active">
+      <div v-if="recordState === 'recording' || recordState === 'paused'" class="record-active" style="margin-bottom:16px;">
         <div class="record-indicator">
           <span class="record-dot" :class="{ blink: recordState === 'recording' }"></span>
-          <span class="record-timer">{{ formatDuration(recordDuration) }}</span>
-          <span class="record-limit">/ 30:00</span>
+          <span class="record-timer">{{ formatDuration(activeRecordDuration) }}</span>
+          <span class="record-limit">/ 60:00</span>
         </div>
         <div class="record-wave" v-if="recordState === 'recording'">
           <span v-for="i in 40" :key="i" class="wave-bar" :style="{ height: waveLevels[i-1] + 'px' }"></span>
         </div>
-        
         <div class="record-actions">
           <button v-if="recordState === 'recording'" class="btn-record-pause" @click="pauseRecording">⏸ 暂停</button>
           <button v-if="recordState === 'paused'" class="btn-record-resume" @click="resumeRecording">▶ 继续</button>
           <button class="btn-record-stop" @click="stopRecording">⏹ 停止</button>
         </div>
-        <div class="record-hint">录音完成后，可输入名称并自动上传转写</div>
       </div>
 
-      <!-- 录音完成 → 命名确认 -->
-      <div v-if="recordState === 'done'" class="record-done">
-        <div class="check-icon">✓</div>
-        <p class="record-done-text">录音完成：{{ formatDuration(recordDuration) }}</p>
-        <div class="record-name-row">
-          <input v-model="recordName" class="record-name-input" placeholder="输入录音名称，如：MOPRO-1890 评审会议" />
+      <!-- 空闲状态 + 设备选择 + 开始按钮 -->
+      <div v-if="recordState === 'idle'" class="record-prompt" style="margin-bottom:16px;">
+        <div class="device-selector">
+          <label>选择麦克风：</label>
+          <select v-model="selectedDeviceId" class="device-select">
+            <option value="">-- 默认设备 --</option>
+            <option v-for="d in audioDevices" :key="d.deviceId" :value="d.deviceId">{{ d.label || "麦克风" }}</option>
+          </select>
+          <button class="btn-refresh-devices" @click="loadAudioDevices">刷新</button>
         </div>
-        <div class="record-done-actions">
-          <button class="btn-primary" @click="confirmUpload" :disabled="recordUploading">
-            <span v-if="recordUploading" class="spinner-sm"></span>
-            {{ recordUploading ? '上传中...' : '✅ 确认上传并转写' }}
+        <div v-if="recordError" class="error-msg" style="margin-bottom:12px;">{{ recordError }}</div>
+        <button class="btn-record-start" @click="startRecording">🎤 开始录音</button>
+        <p style="margin-top:8px;color:#94a3b8;font-size:0.8rem;">最长 60 分钟，可连续录制多段</p>
+      </div>
+
+      <!-- 录音列表 -->
+      <div v-if="recordings.length > 0" class="recordings-list">
+        <div class="file-list-header">
+          <span class="file-count">已录制 {{ recordings.length }} 段</span>
+          <button v-if="recordingsUploadedCount > 0" class="btn-primary btn-sm" @click="batchTranscribeRecordings">
+            📝 批量转写（{{ recordingsUploadedCount }} 段）
           </button>
-          <button class="btn-secondary" @click="cancelRecording">重新录制</button>
         </div>
-      </div>
-
-      <!-- 录音上传中/转写中 -->
-      <div v-if="recordState === 'uploading'" class="record-progress">
-        <div class="spinner"></div>
-        <p>上传录音中...</p>
-      </div>
-      <div v-if="recordState === 'transcribing'" class="record-progress">
-        <div class="progress-section">
-          <div class="progress-bar">
-            <div class="progress-fill" :style="{ width: (taskProgress * 100) + '%' }"></div>
+        <div class="file-list">
+          <div v-for="(r, idx) in recordings" :key="r.id" class="file-row">
+            <span class="file-order">{{ idx + 1 }}</span>
+            <span class="record-name-col">
+              <input v-model="r.name" class="record-name-input" placeholder="输入录音名称" :disabled="r.state === 'transcribing' || r.state === 'transcribe-done'" />
+            </span>
+            <span class="file-size">{{ formatDuration(r.duration) }}</span>
+            <span class="file-format">{{ stateLabel(r.state) }}</span>
+            <div class="file-actions">
+              <!-- 待上传 -->
+              <template v-if="r.state === 'done'">
+                <button class="btn-primary btn-sm" @click="uploadRecordingFile(r)" :disabled="r.uploading">
+                  <span v-if="r.uploading" class="spinner-sm"></span>
+                  {{ r.uploading ? '上传中...' : '📤 上传' }}
+                </button>
+                <button class="btn-remove" @click="removeRecording(idx)" title="删除">✕</button>
+              </template>
+              <!-- 已上传，待转写 -->
+              <template v-if="r.state === 'uploaded'">
+                <button class="btn-primary btn-sm" @click="startTranscribe(r)">📝 转写</button>
+                <button class="btn-remove" @click="removeRecording(idx)" title="删除">✕</button>
+              </template>
+              <!-- 上传中 -->
+              <template v-if="r.state === 'uploading'">
+                <span class="batch-task-status">上传中...</span>
+              </template>
+              <!-- 转写中 -->
+              <template v-if="r.state === 'transcribing'">
+                <div class="batch-progress-bar" style="width:120px;">
+                  <div class="progress-fill" :style="{ width: (r.taskProgress * 100) + '%' }"></div>
+                </div>
+                <span class="batch-task-status" style="margin-left:4px;">{{ progressLabel(r.taskProgress) }}</span>
+              </template>
+              <!-- 转写完成 -->
+              <template v-if="r.state === 'transcribe-done'">
+                <router-link :to="`/task/${r.taskId}`" class="btn-primary btn-sm">查看结果 →</router-link>
+                <router-link :to="`/minutes/new?task_id=${r.taskId}`" class="btn-minutes btn-sm">📝 纪要</router-link>
+                <button class="btn-remove" @click="removeRecording(idx)" title="删除">✕</button>
+              </template>
+              <!-- 错误 -->
+              <template v-if="r.state === 'error'">
+                <span class="failed-text" style="font-size:0.78rem;">❌ {{ r.error }}</span>
+                <button class="btn-secondary btn-sm" @click="retryRecording(idx)">重试</button>
+                <button class="btn-remove" @click="removeRecording(idx)" title="删除">✕</button>
+              </template>
+            </div>
           </div>
-          <div class="progress-text">{{ progressLabel(taskProgress) }}</div>
         </div>
-        <p class="polling-hint">
-          <span class="spinner-sm"></span>
-          {{ pollingCount > 0 ? `已等待 ${formatDuration(pollingCount)}` : '自动转写中...' }}
-        </p>
-      </div>
-      <div v-if="recordState === 'transcribe-done'" class="record-result">
-        <p>✅ 转写完成</p>
-        <div class="task-actions">
-          <router-link :to="`/task/${taskId}`" class="btn-primary">查看转写结果 →</router-link>
-          <router-link :to="`/minutes/new?task_id=${taskId}`" class="btn-minutes">📝 生成纪要</router-link>
-        </div>
-      </div>
-      <div v-if="recordState === 'error'" class="record-error">
-        <p class="failed-text">❌ {{ recordError }}</p>
-        <button class="btn-secondary" @click="resetRecord">重新录制</button>
       </div>
     </div>
 
@@ -198,17 +230,12 @@ import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { uploadAudio, uploadRecording, submitTask, getTask, listMeetings } from '../api.js'
 import CreateMeetingModal from '../components/CreateMeetingModal.vue'
 
-// ====== 文件上传相关 ======
+// ====== 文件上传相关（支持多文件） ======
 const fileInput = ref(null)
 const dragging = ref(false)
 const uploading = ref(false)
-const transcribing = ref(false)
-const uploadResult = ref(null)
-const taskId = ref(null)
-const taskStatus = ref('')
-const taskProgress = ref(0)
-const taskError = ref('')
-const pollingCount = ref(0)
+const uploadStatusText = ref('')
+const uploadedFiles = ref([])  // 已上传的文件列表
 const error = ref('')
 const meetings = ref([])
 const selectedMeetingId = ref('')
@@ -218,109 +245,218 @@ const selectedMeetingName = computed(() => {
 })
 const showNewMeeting = ref(false)
 
+// 批量转写相关
+const batchTranscribing = ref(false)
+const batchTasks = ref([])  // { task_id, name, status, progress, statusText }
+const batchAllDone = ref(false)
+const batchPollingCount = ref(0)
+const batchError = ref('')
+let batchTimer = null
+
 async function onMeetingCreated(m) {
   meetings.value = await listMeetings()
   selectedMeetingId.value = m.id
   showNewMeeting.value = false
 }
-let timer = null
 
-const viewState = computed(() => {
-  if (!taskId.value) return 'idle'
-  if (taskStatus.value === 'completed') return 'done'
-  if (taskStatus.value === 'failed') return 'error'
-  return 'processing'
+const batchDoneCount = computed(() => {
+  return batchTasks.value.filter(t => t.status === 'completed').length
 })
 
 function onDrop(e) {
   dragging.value = false
-  const file = e.dataTransfer.files[0]
-  if (file) processFile(file)
+  const files = e.dataTransfer.files
+  if (files.length > 0) addFiles(files)
 }
 
 onMounted(async () => {
-  try { meetings.value = await listMeetings() } catch { /* ignore */ }
+  try { meetings.value = await listMeetings() } catch (e) { /* ignore */ }
   setTimeout(() => loadAudioDevices(), 500)
 })
 
 function onFileSelect(e) {
-  const file = e.target.files[0]
-  if (file) processFile(file)
+  const files = e.target.files
+  if (files.length > 0) addFiles(files)
+  e.target.value = ''  // 允许重复选择同一文件
 }
 
-async function processFile(file) {
+function addFiles(fileList) {
   error.value = ''
   const allowed = ['mp3', 'wav', 'm4a']
-  const ext = file.name.split('.').pop().toLowerCase()
-  if (!allowed.includes(ext)) {
-    error.value = `不支持的格式: .${ext}，允许: ${allowed.join(', ')}`
-    return
+  const files = []
+  for (const file of fileList) {
+    const ext = file.name.split('.').pop().toLowerCase()
+    if (!allowed.includes(ext)) {
+      error.value = `不支持的格式: .${ext}，允许: ${allowed.join(', ')}`
+      continue
+    }
+    if (file.size > 200 * 1024 * 1024) {
+      error.value = `文件过大（${file.name}），限制 200MB`
+      continue
+    }
+    files.push(file)
   }
-  if (file.size > 200 * 1024 * 1024) {
-    error.value = '文件过大，限制 200MB'
-    return
-  }
+  if (files.length > 0) uploadFiles(files)
+}
+
+async function uploadFiles(files) {
   uploading.value = true
-  try {
-    const result = await uploadAudio(file)
-    uploadResult.value = result
-  } catch (e) {
-    error.value = '上传失败: ' + e.message
-  } finally {
-    uploading.value = false
+  for (let i = 0; i < files.length; i++) {
+    const file = files[i]
+    uploadStatusText.value = `上传中...(${i + 1}/${files.length}) ${file.name}`
+    try {
+      const result = await uploadAudio(file)
+      uploadedFiles.value.push(result)
+    } catch (e) {
+      error.value = `上传失败（${file.name}）: ${e.message}`
+    }
+  }
+  uploading.value = false
+  uploadStatusText.value = ''
+}
+
+// 排序
+const draggingIdx = ref(-1)
+const dragOverIdx = ref(-1)
+
+function onDragStart(idx, e) {
+  draggingIdx.value = idx
+  e.dataTransfer.effectAllowed = 'move'
+  e.dataTransfer.setData('text/plain', String(idx))
+}
+
+function onDragOver(idx) {
+  dragOverIdx.value = idx
+}
+
+function onDragLeave(idx) {
+  if (dragOverIdx.value === idx) {
+    dragOverIdx.value = -1
   }
 }
 
-async function startTranscribe() {
-  if (!uploadResult.value) return
-  transcribing.value = true
-  error.value = ''
+function onDropFile(idx) {
+  dragOverIdx.value = -1
+  const fromIdx = draggingIdx.value
+  draggingIdx.value = -1
+  if (fromIdx === idx || fromIdx < 0) return
+  const arr = [...uploadedFiles.value]
+  const [moved] = arr.splice(fromIdx, 1)
+  arr.splice(idx, 0, moved)
+  uploadedFiles.value = arr
+}
+
+function onDragEnd() {
+  draggingIdx.value = -1
+  dragOverIdx.value = -1
+}
+
+function moveUp(idx) {
+  if (idx <= 0) return
+  const arr = uploadedFiles.value
+  const tmp = arr[idx - 1]
+  arr[idx - 1] = arr[idx]
+  arr[idx] = tmp
+  uploadedFiles.value = [...arr]  // trigger reactivity
+}
+
+function moveDown(idx) {
+  if (idx >= uploadedFiles.value.length - 1) return
+  const arr = uploadedFiles.value
+  const tmp = arr[idx + 1]
+  arr[idx + 1] = arr[idx]
+  arr[idx] = tmp
+  uploadedFiles.value = [...arr]
+}
+
+function removeFile(idx) {
+  const arr = [...uploadedFiles.value]
+  arr.splice(idx, 1)
+  uploadedFiles.value = arr
+  if (arr.length === 0) resetUpload()
+}
+
+// 批量转写（合并为单任务）
+async function startBatchTranscribe() {
+  if (uploadedFiles.value.length === 0) return
+  batchTranscribing.value = true
+  batchError.value = ''
+  batchTasks.value = []
+  batchAllDone.value = false
+  batchPollingCount.value = 0
+
   try {
-    const taskParams = { audio_path: uploadResult.value.path }
+    const paths = uploadedFiles.value.map(f => f.path)
+    const names = uploadedFiles.value.map(f => f.filename)
+    const taskName = names.length === 1 ? names[0] : (names[0] + ` 等${names.length}个文件`)
+    const taskParams = { audio_paths: paths }
     if (selectedMeetingId.value) taskParams.meeting_id = selectedMeetingId.value
-    const result = await submitTask('asr', taskParams, uploadResult.value.filename)
-    taskId.value = result.task_id
-    taskStatus.value = 'pending'
-    taskProgress.value = 0
-    startPolling()
+    const result = await submitTask('asr', taskParams, taskName)
+    batchTasks.value.push({
+      task_id: result.task_id,
+      name: taskName,
+      status: result.status === 'completed' ? 'completed' : 'pending',
+      progress: 0,
+      statusText: result.status === 'completed' ? '已完成' : '排队中',
+    })
+    // 开始轮询
+    startBatchPolling()
   } catch (e) {
-    error.value = '提交失败: ' + (e.message || '未知错误')
-  } finally {
-    transcribing.value = false
+    batchError.value = '提交失败: ' + (e.message || '未知错误')
+    batchTranscribing.value = false
   }
 }
 
-function startPolling() {
-  pollingCount.value = 0
-  pollTask()
-  timer = setInterval(() => {
-    pollingCount.value += 2
-    pollTask()
+function startBatchPolling() {
+  batchPollingCount.value = 0
+  pollBatchTasks()
+  batchTimer = setInterval(() => {
+    batchPollingCount.value += 2
+    pollBatchTasks()
   }, 2000)
 }
 
-async function pollTask() {
-  if (!taskId.value) return
-  try {
-    const t = await getTask(taskId.value)
-    taskStatus.value = t.status
-    taskProgress.value = t.progress || 0
-    if (t.status === 'failed') {
-      taskError.value = t.error_message || ''
-      stopPolling()
-    }
-    if (t.status === 'completed') {
-      taskProgress.value = 1.0
-      stopPolling()
-    }
-  } catch { /* ignore */ }
+async function pollBatchTasks() {
+  let allDone = true
+  for (const bt of batchTasks.value) {
+    if (bt.status === 'completed' || bt.status === 'failed') continue
+    allDone = false
+    try {
+      const t = await getTask(bt.task_id)
+      bt.status = t.status
+      bt.progress = t.progress || 0
+      if (t.status === 'completed') {
+        bt.statusText = '✅ 已完成'
+        bt.progress = 1.0
+      } else if (t.status === 'failed') {
+        bt.statusText = '❌ 失败'
+        bt.error = t.error_message || ''
+      } else if (t.status === 'processing') {
+        bt.statusText = `转写中 ${Math.round((t.progress || 0) * 100)}%`
+      } else {
+        bt.statusText = '排队中'
+      }
+    } catch (e) { /* ignore */ }
+  }
+  if (allDone) {
+    stopBatchPolling()
+    batchAllDone.value = true
+    batchTranscribing.value = false
+  }
 }
 
-function stopPolling() {
-  if (timer) {
-    clearInterval(timer)
-    timer = null
+function stopBatchPolling() {
+  if (batchTimer) {
+    clearInterval(batchTimer)
+    batchTimer = null
   }
+}
+
+function taskIcon(status) {
+  if (status === 'completed') return '✅'
+  if (status === 'failed') return '❌'
+  if (status === 'processing') return '🔄'
+  return '⏳'
 }
 
 function formatDuration(s) {
@@ -343,33 +479,114 @@ function progressLabel(p) {
 }
 
 function resetUpload() {
-  stopPolling()
-  uploadResult.value = null
-  taskId.value = null
-  taskStatus.value = ''
-  taskProgress.value = 0
-  taskError.value = ''
-  error.value = ''
+  uploadedFiles.value = []
+  batchTasks.value = []
+  batchTranscribing.value = false
+  batchAllDone.value = false
+  batchError.value = ''
+  stopBatchPolling()
 }
 
-// ====== 录音相关 ======
-const MAX_RECORD_SECONDS = 1800  // 30 分钟
+// ====== 录音相关（支持多段录制） ======
+const recordingsUploadedCount = computed(() => {
+  return recordings.value.filter(r => r.state === 'uploaded').length
+})
+
+async function batchTranscribeRecordings() {
+  const uploaded = recordings.value.filter(r => r.state === 'uploaded')
+  if (uploaded.length === 0) return
+  try {
+    await ElMessageBox.confirm(
+      `确定批量转写 ${uploaded.length} 段录音？将合并为一份转写结果。`,
+      '批量转写',
+      { confirmButtonText: '确定', cancelButtonText: '取消', type: 'info' }
+    )
+  } catch (e) {
+    return  // 用户取消
+  }
+
+  const paths = uploaded.map(r => r.uploadPath)
+  const names = uploaded.map(r => r.name)
+  const taskName = names[0] + ` 等${names.length}个录音`
+
+  // 标记所有录音为转写中
+  for (const r of uploaded) {
+    r.state = 'transcribing'
+    r.taskProgress = 0
+  }
+
+  try {
+    const taskParams = { audio_paths: paths }
+    if (selectedMeetingId.value) taskParams.meeting_id = selectedMeetingId.value
+    const result = await submitTask('asr', taskParams, taskName)
+    const taskId = result.task_id
+    // 所有录音共用一个 taskId
+    for (const r of uploaded) {
+      r.taskId = taskId
+    }
+    // 轮询转写进度
+    const poll = setInterval(async () => {
+      try {
+        const t = await getTask(taskId)
+        if (t.status === 'completed') {
+          clearInterval(poll)
+          for (const r of uploaded) {
+            r.state = 'transcribe-done'
+            r.taskProgress = 1.0
+          }
+        } else if (t.status === 'failed') {
+          clearInterval(poll)
+          for (const r of uploaded) {
+            r.state = 'error'
+            r.error = t.error_message || '转写失败'
+          }
+        } else if (t.status === 'processing') {
+          for (const r of uploaded) {
+            r.taskProgress = t.progress || 0
+          }
+        }
+      } catch { /* ignore */ }
+    }, 2000)
+  } catch (e) {
+    for (const r of uploaded) {
+      r.state = 'error'
+      r.error = '启动转写失败: ' + (e.message || '未知错误')
+    }
+  }
+}
+const MAX_RECORD_SECONDS = 3600  // 60 分钟
 const browserSupport = ref(!!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia))
-const audioDevices = ref([])
 const waveLevels = ref(new Array(40).fill(2))
+const audioDevices = ref([])
 const selectedDeviceId = ref("")
 
-const recordState = ref('idle')  // idle | recording | paused | done | uploading | transcribing | transcribe-done | error
-const recordDuration = ref(0)
-const recordChunks = ref([])
-const recordName = ref('')
-const recordError = ref('')
-const recordUploading = ref(false)
-let mediaRecorder = null
-let mediaStream = null
-let recordTimer = null
-let audioContext = null
-let analyserNode = null
+const recordState = ref('idle')  // idle | recording | paused
+const recordError = ref('')  // 当前录音错误提示
+const recordings = ref([])  // { id, name, blob, duration, state, uploading, uploadPath, taskId, taskProgress, error }
+
+// 当前录制会话临时变量（一次只录一段）
+let activeRecordChunks = []
+let activeRecordDuration = 0
+let activeMediaRecorder = null
+let activeMediaStream = null
+let activeRecordTimer = null
+let activeWaveTimer = null
+let activeAudioContext = null
+let activeAnalyserNode = null
+let recIdCounter = 0
+
+function updateWave() {
+  if (!activeAnalyserNode) return
+  try {
+    const data = new Uint8Array(activeAnalyserNode.frequencyBinCount)
+    activeAnalyserNode.getByteFrequencyData(data)
+    const levels = []
+    for (let i = 0; i < 40; i++) {
+      levels.push(Math.max(2, Math.round((data[i] || 0) / 255 * 36)))
+    }
+    waveLevels.value = levels
+  } catch (e) { /* ignore */ }
+}
 
 async function loadAudioDevices() {
   try {
@@ -385,14 +602,13 @@ async function loadAudioDevices() {
     if (mic) {
       selectedDeviceId.value = mic.deviceId
     }
-  } catch { /* ignore */ }
+  } catch (e) { /* ignore */ }
 }
 
 async function startRecording() {
+  activeRecordChunks = []
+  activeRecordDuration = 0
   recordError.value = ''
-  recordName.value = ''
-  recordChunks.value = []
-  recordDuration.value = 0
 
   try {
     const constraints = { audio: true }
@@ -403,179 +619,207 @@ async function startRecording() {
 
     // 创建音频分析器用于波形显示
     try {
-      audioContext = new AudioContext()
-      if (audioContext.state === 'suspended') await audioContext.resume()
-      const source = audioContext.createMediaStreamSource(stream)
-      analyserNode = audioContext.createAnalyser()
-      analyserNode.fftSize = 64
-      source.connect(analyserNode)
-    } catch { /* 波形非必须 */ }
+      activeAudioContext = new AudioContext()
+      if (activeAudioContext.state === 'suspended') await activeAudioContext.resume()
+      const source = activeAudioContext.createMediaStreamSource(stream)
+      activeAnalyserNode = activeAudioContext.createAnalyser()
+      activeAnalyserNode.fftSize = 64
+      source.connect(activeAnalyserNode)
+    } catch (e) { /* 波形非必须 */ }
 
-    // 使用 MediaRecorder
-    mediaRecorder = new MediaRecorder(stream)
+    activeMediaRecorder = new MediaRecorder(stream)
 
-    mediaRecorder.ondataavailable = (e) => {
+    activeMediaRecorder.ondataavailable = (e) => {
       if (e.data && e.data.size > 0) {
-        recordChunks.value.push(e.data)
+        activeRecordChunks.push(e.data)
       }
     }
 
-    mediaRecorder.onstop = () => {
-      if (recordChunks.value.length === 0) {
-        recordError.value = '未捕获到音频数据'
-        recordState.value = 'error'
-      } else {
-        const blob = new Blob(recordChunks.value, { type: mediaRecorder.mimeType })
-        recordBlob.value = blob
-        recordState.value = 'done'
+    activeMediaRecorder.onstop = () => {
+      if (activeRecordChunks.length > 0) {
+        const blob = new Blob(activeRecordChunks, { type: activeMediaRecorder.mimeType })
+        recordings.value.push({
+          id: ++recIdCounter,
+          name: '录音_' + new Date().toLocaleString('zh-CN'),
+          blob,
+          duration: activeRecordDuration,
+          state: 'done',
+          uploading: false,
+          uploadPath: null,
+          taskId: null,
+          taskProgress: 0,
+          error: '',
+        })
       }
+      recordState.value = 'idle'
       releaseMic()
     }
 
-    mediaRecorder.start()
+    activeMediaRecorder.start()
     recordState.value = 'recording'
-    mediaStream = stream
+    activeMediaStream = stream
 
     // 计时器
-    recordTimer = setInterval(() => {
-      recordDuration.value++
-      updateWave()
-      if (recordDuration.value >= MAX_RECORD_SECONDS) {
+    activeRecordTimer = setInterval(() => {
+      activeRecordDuration++
+      if (activeRecordDuration >= MAX_RECORD_SECONDS) {
         stopRecording()
       }
     }, 1000)
+
+    // 波形更新（高频，让波浪动起来）
+    updateWave()
+    activeWaveTimer = setInterval(updateWave, 150)
   } catch (e) {
     if (e.name === 'NotAllowedError' || e.name === 'PermissionDeniedError') {
-      recordError.value = '麦克风权限被拒绝'
+      recordError.value = '❌ 麦克风权限被拒绝，请在浏览器设置中允许麦克风访问'
     } else if (e.name === 'NotFoundError') {
-      recordError.value = '未检测到麦克风设备'
+      recordError.value = '❌ 未检测到麦克风设备'
     } else {
-      recordError.value = '启动录音失败: ' + e.message
+      recordError.value = '❌ 启动录音失败: ' + (e.message || '未知错误')
     }
-    recordState.value = 'error'
+    recordState.value = 'idle'
   }
 }
 
 function pauseRecording() {
-  if (mediaRecorder && mediaRecorder.state === 'recording') {
-    mediaRecorder.pause()
+  if (activeMediaRecorder && activeMediaRecorder.state === 'recording') {
+    activeMediaRecorder.pause()
     recordState.value = 'paused'
-    if (recordTimer) clearInterval(recordTimer)
+    if (activeRecordTimer) clearInterval(activeRecordTimer)
+    if (activeWaveTimer) clearInterval(activeWaveTimer)
   }
 }
 
-function updateWave() {
-  if (!analyserNode) return
-  try {
-    const data = new Uint8Array(analyserNode.frequencyBinCount)
-    analyserNode.getByteFrequencyData(data)
-    const levels = []
-    for (let i = 0; i < 40; i++) {
-      levels.push(Math.max(2, Math.round((data[i] || 0) / 255 * 36)))
-    }
-    waveLevels.value = levels
-  } catch { /* ignore */ }
-}
-
 function resumeRecording() {
-  if (mediaRecorder && mediaRecorder.state === 'paused') {
-    mediaRecorder.resume()
+  if (activeMediaRecorder && activeMediaRecorder.state === 'paused') {
+    activeMediaRecorder.resume()
     recordState.value = 'recording'
-    recordTimer = setInterval(() => {
-      recordDuration.value++
-      updateWave()
-      if (recordDuration.value >= MAX_RECORD_SECONDS) {
+    activeRecordTimer = setInterval(() => {
+      activeRecordDuration++
+      if (activeRecordDuration >= MAX_RECORD_SECONDS) {
         stopRecording()
       }
     }, 1000)
+    activeWaveTimer = setInterval(updateWave, 150)
   }
 }
 
 function stopRecording() {
-  if (recordTimer) { clearInterval(recordTimer); recordTimer = null }
-  if (mediaRecorder && mediaRecorder.state !== 'inactive') {
-    mediaRecorder.stop()
+  if (activeRecordTimer) { clearInterval(activeRecordTimer); activeRecordTimer = null }
+  if (activeWaveTimer) { clearInterval(activeWaveTimer); activeWaveTimer = null }
+  if (activeMediaRecorder && activeMediaRecorder.state !== 'inactive') {
+    activeMediaRecorder.stop()
   }
 }
-
-const recordBlob = ref(null)
 
 function releaseMic() {
-  if (mediaStream) {
-    mediaStream.getTracks().forEach(t => t.stop())
-    mediaStream = null
+  if (activeMediaStream) {
+    activeMediaStream.getTracks().forEach(t => t.stop())
+    activeMediaStream = null
   }
-  if (audioContext) {
-    audioContext.close().catch(() => {})
-    audioContext = null
-    analyserNode = null
+  if (activeAudioContext) {
+    activeAudioContext.close().catch(() => {})
+    activeAudioContext = null
+    activeAnalyserNode = null
   }
 }
 
-
-async function confirmUpload() {
-  if (!recordBlob.value) return
-  const name = recordName.value.trim() || ('录音_' + new Date().toLocaleString('zh-CN'))
-  const ext = recordBlob.value.type.includes('mp4') ? 'm4a' : 'webm'
-  recordUploading.value = true
+// 第一步：上传录音文件到服务器
+async function uploadRecordingFile(r) {
+  if (!r.blob) return
+  const name = r.name.trim() || ('录音_' + new Date().toLocaleString('zh-CN'))
+  const ext = r.blob.type.includes('mp4') ? 'm4a' : 'webm'
+  r.uploading = true
+  r.state = 'uploading'
   try {
-    const result = await uploadRecording(recordBlob.value, name + '.' + ext)
-    recordState.value = 'transcribing'
-    const taskParams = { audio_path: result.path }
+    const result = await uploadRecording(r.blob, name + '.' + ext)
+    r.uploadPath = result.path
+    r.state = 'uploaded'
+  } catch (e) {
+    r.state = 'error'
+    r.error = '上传失败: ' + (e.message || '未知错误')
+  } finally {
+    r.uploading = false
+  }
+}
+
+// 第二步：转写（需二次确认）
+async function startTranscribe(r) {
+  if (!r.uploadPath) return
+  try {
+    await ElMessageBox.confirm(
+      `确定开始转写「${r.name}」？`,
+      '启动转写',
+      { confirmButtonText: '确定', cancelButtonText: '取消', type: 'info' }
+    )
+  } catch (e) {
+    return  // 用户取消
+  }
+
+  r.state = 'transcribing'
+  r.taskProgress = 0
+  try {
+    const taskParams = { audio_path: r.uploadPath }
     if (selectedMeetingId.value) taskParams.meeting_id = selectedMeetingId.value
-    const taskResult = await submitTask('asr', taskParams, name)
-    taskId.value = taskResult.task_id
-    taskStatus.value = 'pending'
-    taskProgress.value = 0
-    startPolling()
-    // 监听转写完成
-    const waitForTranscribe = setInterval(async () => {
+    const taskResult = await submitTask('asr', taskParams, r.name)
+    r.taskId = taskResult.task_id
+    // 轮询转写进度
+    const poll = setInterval(async () => {
       try {
         const t = await getTask(taskResult.task_id)
         if (t.status === 'completed') {
-          clearInterval(waitForTranscribe)
-          taskStatus.value = 'completed'
-          taskProgress.value = 1.0
-          recordState.value = 'transcribe-done'
+          clearInterval(poll)
+          r.state = 'transcribe-done'
+          r.taskProgress = 1.0
         } else if (t.status === 'failed') {
-          clearInterval(waitForTranscribe)
-          recordError.value = t.error_message || '转写失败'
-          recordState.value = 'error'
+          clearInterval(poll)
+          r.state = 'error'
+          r.error = t.error_message || '转写失败'
+        } else if (t.status === 'processing') {
+          r.taskProgress = t.progress || 0
         }
-      } catch { /* ignore */ }
+      } catch (e) { /* ignore */ }
     }, 2000)
   } catch (e) {
-    recordError.value = '上传失败: ' + e.message
-    recordState.value = 'error'
-  } finally {
-    recordUploading.value = false
+    r.state = 'error'
+    r.error = '启动转写失败: ' + (e.message || '未知错误')
   }
 }
 
-function cancelRecording() {
-  resetRecord()
+function removeRecording(idx) {
+  recordings.value.splice(idx, 1)
 }
 
-function resetRecord() {
-  if (recordTimer) { clearInterval(recordTimer); recordTimer = null }
-  if (mediaRecorder && mediaRecorder.state !== 'inactive') {
-    mediaRecorder.stop()
+function retryRecording(idx) {
+  const r = recordings.value[idx]
+  r.state = r.uploadPath ? 'uploaded' : 'done'
+  r.error = ''
+  r.taskId = null
+  r.taskProgress = 0
+  r.uploading = false
+}
+
+function stateLabel(s) {
+  const map = {
+    done: '待上传',
+    uploading: '上传中',
+    uploaded: '待转写',
+    transcribing: '转写中',
+    'transcribe-done': '✅ 完成',
+    error: '❌ 失败',
   }
-  releaseMic()
-  recordState.value = 'idle'
-  recordDuration.value = 0
-  recordChunks.value = []
-  recordName.value = ''
-  recordBlob.value = null
-  recordError.value = ''
-  recordUploading.value = false
-  waveLevels.value = new Array(40).fill(2)
-  stopPolling()
+  return map[s] || s
 }
 
 onUnmounted(() => {
-  stopPolling()
-  resetRecord()
+  stopBatchPolling()
+  if (activeRecordTimer) clearInterval(activeRecordTimer)
+  if (activeWaveTimer) clearInterval(activeWaveTimer)
+  if (activeMediaRecorder && activeMediaRecorder.state !== 'inactive') {
+    activeMediaRecorder.stop()
+  }
+  releaseMic()
 })
 </script>
 
@@ -608,7 +852,6 @@ onUnmounted(() => {
 @keyframes spin { to { transform: rotate(360deg); } }
 .spinner-sm { display: inline-block; width: 14px; height: 14px; border: 2px solid #e2e8f0; border-top-color: #4f46e5; border-radius: 50%; animation: spin 0.8s linear infinite; vertical-align: middle; margin-right: 4px; }
 .upload-success { }
-.check-icon { width: 48px; height: 48px; border-radius: 50%; background: #16a34a; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 1.4rem; margin: 0 auto 8px; font-weight: bold; }
 .meeting-tag { font-size: 0.8rem; color: #4f46e5; background: #eef2ff; padding: 4px 10px; border-radius: 4px; display: inline-block; margin-bottom: 8px; }
 .file-info { display: flex; gap: 16px; justify-content: center; font-size: 0.82rem; color: #64748b; margin-bottom: 16px; }
 .action-row { display: flex; gap: 8px; justify-content: center; }
@@ -617,6 +860,7 @@ onUnmounted(() => {
 .btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
 .btn-secondary { padding: 10px 24px; border: 1px solid #e2e8f0; background: #fff; border-radius: 8px; cursor: pointer; font-size: 0.88rem; color: #64748b; }
 .btn-secondary:hover { border-color: #dc2626; color: #dc2626; }
+.btn-sm { padding: 6px 14px; font-size: 0.82rem; }
 .task-progress { margin-top: 12px; }
 .progress-section { max-width: 400px; margin: 0 auto; }
 .progress-bar { height: 8px; background: #e2e8f0; border-radius: 4px; overflow: hidden; }
@@ -631,14 +875,14 @@ onUnmounted(() => {
 /* 录音区域 */
 .record-zone { border: 2px dashed #e2e8f0; border-radius: 12px; padding: 40px; text-align: center; }
 .record-zone.unsupported { padding: 24px; color: #94a3b8; font-size: 0.85rem; }
+.record-prompt { color: #94a3b8; }
+.record-icon { font-size: 2.5rem; margin-bottom: 8px; }
 .device-selector { display: flex; align-items: center; gap: 8px; margin-bottom: 16px; font-size: 0.85rem; }
 .device-selector label { color: #64748b; white-space: nowrap; }
 .device-select { flex: 1; padding: 6px 10px; border: 1px solid #e2e8f0; border-radius: 6px; font-size: 0.85rem; outline: none; }
 .device-select:focus { border-color: #4f46e5; }
 .btn-refresh-devices { padding: 4px 10px; border: 1px solid #e2e8f0; background: #fff; border-radius: 4px; cursor: pointer; font-size: 0.78rem; color: #64748b; }
 .btn-refresh-devices:hover { border-color: #4f46e5; color: #4f46e5; }
-.record-prompt { color: #94a3b8; }
-.record-icon { font-size: 2.5rem; margin-bottom: 8px; }
 .btn-record-start { padding: 12px 32px; background: #dc2626; color: #fff; border: none; border-radius: 8px; cursor: pointer; font-size: 1rem; margin-top: 12px; transition: background 0.2s; }
 .btn-record-start:hover { background: #b91c1c; }
 
@@ -658,16 +902,54 @@ onUnmounted(() => {
 .btn-record-pause:hover, .btn-record-resume:hover { border-color: #4f46e5; color: #4f46e5; }
 .btn-record-stop { padding: 10px 24px; background: #dc2626; color: #fff; border: none; border-radius: 8px; cursor: pointer; font-size: 0.88rem; }
 .btn-record-stop:hover { background: #b91c1c; }
-.record-hint { font-size: 0.78rem; color: #94a3b8; margin-top: 12px; }
 
-.record-done { }
-.record-done-text { font-size: 0.9rem; color: #1e293b; margin: 8px 0 16px; }
-.record-name-row { max-width: 400px; margin: 0 auto 16px; }
-.record-name-input { width: 100%; padding: 10px 14px; border: 1px solid #e2e8f0; border-radius: 6px; font-size: 0.9rem; outline: none; box-sizing: border-box; }
+.record-name-input { width: 100%; padding: 6px 10px; border: 1px solid #e2e8f0; border-radius: 4px; font-size: 0.85rem; outline: none; box-sizing: border-box; }
 .record-name-input:focus { border-color: #4f46e5; }
-.record-done-actions { display: flex; gap: 8px; justify-content: center; }
+.record-name-col { flex: 1; min-width: 0; margin-right: 4px; }
 
-.record-progress { padding: 20px; }
-.record-result { }
 .record-error { }
+
+/* 多文件列表 */
+.upload-zone.has-files { border-style: solid; border-color: #4f46e5; padding: 20px; text-align: left; }
+.file-list-wrap { }
+.file-list-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+.file-count { font-size: 0.85rem; color: #64748b; font-weight: 500; }
+.meeting-tag-mini { font-size: 0.78rem; color: #4f46e5; background: #eef2ff; padding: 3px 8px; border-radius: 4px; }
+
+.file-list { max-height: 360px; overflow-y: auto; }
+.file-row { display: flex; align-items: center; gap: 8px; padding: 10px 12px; border: 1px solid #e2e8f0; border-radius: 6px; margin-bottom: 6px; background: #fff; transition: all 0.15s; cursor: default; }
+.file-row:hover { background: #f8fafc; }
+.file-row.dragging-src { opacity: 0.4; }
+.file-row.drag-over { border-color: #4f46e5; background: #eef2ff; transform: scale(1.02); box-shadow: 0 2px 8px rgba(79,70,229,0.15); }
+.drag-handle { cursor: grab; color: #cbd5e1; font-size: 1rem; line-height: 1; user-select: none; flex-shrink: 0; padding: 0 2px; }
+.drag-handle:hover { color: #4f46e5; }
+.file-row:hover .drag-handle { color: #94a3b8; }
+.file-order { width: 24px; height: 24px; border-radius: 50%; background: #4f46e5; color: #fff; font-size: 0.75rem; font-weight: 600; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.file-name { flex: 1; font-size: 0.85rem; color: #1e293b; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.file-size { font-size: 0.78rem; color: #94a3b8; width: 60px; text-align: right; flex-shrink: 0; }
+.file-format { font-size: 0.75rem; color: #4f46e5; background: #eef2ff; padding: 2px 6px; border-radius: 4px; width: 36px; text-align: center; flex-shrink: 0; }
+.file-actions { display: flex; gap: 2px; flex-shrink: 0; }
+.btn-order, .btn-remove { width: 28px; height: 28px; border: 1px solid #e2e8f0; background: #fff; border-radius: 4px; cursor: pointer; font-size: 0.8rem; display: flex; align-items: center; justify-content: center; color: #64748b; }
+.btn-order:hover:not(:disabled) { border-color: #4f46e5; color: #4f46e5; }
+.btn-order:disabled { opacity: 0.3; cursor: not-allowed; }
+.btn-remove:hover { border-color: #dc2626; color: #dc2626; }
+
+.file-list-actions { display: flex; gap: 8px; justify-content: center; margin-top: 16px; }
+
+/* 批量转写进度 */
+.batch-progress { margin-top: 16px; text-align: left; }
+.batch-progress-header { font-size: 0.85rem; color: #64748b; margin-bottom: 10px; }
+.batch-task-list { max-height: 300px; overflow-y: auto; }
+.batch-task-row { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border: 1px solid #e2e8f0; border-radius: 6px; margin-bottom: 4px; background: #fff; }
+.batch-task-icon { font-size: 1rem; flex-shrink: 0; }
+.batch-task-name { flex: 1; font-size: 0.82rem; color: #1e293b; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.batch-task-status { font-size: 0.78rem; color: #94a3b8; flex-shrink: 0; min-width: 80px; text-align: right; }
+.batch-progress-bar { width: 80px; height: 4px; background: #e2e8f0; border-radius: 2px; overflow: hidden; flex-shrink: 0; }
+.batch-progress-bar .progress-fill { height: 100%; background: #4f46e5; border-radius: 2px; transition: width 0.3s; }
+
+.batch-all-done { margin-top: 16px; text-align: center; }
+.batch-all-done > p { font-size: 0.95rem; color: #16a34a; font-weight: 600; margin-bottom: 12px; }
+.batch-task-link { margin-bottom: 6px; }
+.batch-task-link .btn-sm { padding: 6px 14px; font-size: 0.82rem; }
+.batch-task-link .btn-minutes.btn-sm { margin-left: 6px; }
 </style>

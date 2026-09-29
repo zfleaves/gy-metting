@@ -26,12 +26,14 @@ router = APIRouter(prefix="/tasks", tags=["任务管理"])
 async def submit_task(
     request: Request,
     task_type: str = Query(..., description="任务类型: asr | minutes | yuque_pull"),
-    audio_path: Optional[str] = Query(None, description="音频文件路径（ASR 任务）"),
+    audio_path: Optional[str] = Query(None, description="音频文件路径（ASR 任务，单文件）"),
+    audio_paths: Optional[str] = Query(None, description="多音频文件路径 JSON 数组（ASR 任务，多文件合并）"),
     meeting_id: Optional[str] = Query(None, description="关联会议 ID"),
     name: Optional[str] = Query(None, description="任务名称（默认取上传文件名）"),
+    sort_order: Optional[int] = Query(None, description="多文件排序序号（已弃用，改用 audio_paths）"),
 ):
     """
-    提交异步任务。相同音频文件复用已有转写结果。
+    提交异步任务。支持单文件（audio_path）或多文件合并（audio_paths）。
 
     返回 task_id，前端轮询 GET /api/tasks/{task_id} 获取结果。
     """
@@ -50,18 +52,32 @@ async def submit_task(
 
     # 构建参数
     params = {}
-    if audio_path:
+    paths = []
+
+    if audio_paths:
+        try:
+            paths = json.loads(audio_paths)
+            if not isinstance(paths, list) or len(paths) == 0:
+                raise ValueError
+        except (json.JSONDecodeError, ValueError):
+            raise HTTPException(status_code=400, detail="audio_paths 必须是合法的 JSON 数组")
+        params["audio_paths"] = paths
+    elif audio_path:
+        paths = [audio_path]
         params["audio_path"] = audio_path
 
-    # 去重：检查是否已有相同音频的已完成任务
-    if audio_path and tt == TaskType.ASR:
+    if sort_order is not None:
+        params["sort_order"] = sort_order
+
+    # 单文件去重（多文件不适用）
+    if len(paths) == 1 and tt == TaskType.ASR:
         manager = get_task_manager()
         existing_tasks = manager.list_tasks(status="completed", task_type="asr", limit=100)
         for t in existing_tasks:
             try:
                 summary = json.loads(t.get("result_summary", "{}"))
-                if summary.get("audio_path") == audio_path:
-                    logger.info("复用已有转写结果: task_id=%s, audio=%s", t["id"], audio_path)
+                if summary.get("audio_path") == paths[0]:
+                    logger.info("复用已有转写结果: task_id=%s, audio=%s", t["id"], paths[0])
                     return {"task_id": t["id"], "status": "completed", "reused": True}
             except (json.JSONDecodeError, KeyError):
                 continue

@@ -185,7 +185,15 @@ export function uploadRecording(blob, filename) {
 
 // 提交任务
 export function submitTask(taskType, params = {}, name = '') {
-  const query = new URLSearchParams({ task_type: taskType, ...params })
+  const query = new URLSearchParams()
+  query.set('task_type', taskType)
+  for (const [k, v] of Object.entries(params)) {
+    if (Array.isArray(v)) {
+      query.set(k, JSON.stringify(v))
+    } else if (v !== undefined && v !== null) {
+      query.set(k, v)
+    }
+  }
   if (name) query.set('name', name)
   return request(`/api/tasks?${query}`, { method: 'POST' })
 }
