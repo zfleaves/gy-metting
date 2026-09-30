@@ -61,7 +61,7 @@
     <!-- 拉取区 -->
     <div class="pull-section">
       <div class="pull-row">
-        <el-select v-model="selectedSource" placeholder="-- 选择来源 --" style="min-width: 180px">
+        <el-select v-model="selectedSource" placeholder="-- 选择来源 --" style="min-width: 180px" filterable>
           <el-option v-for="s in sources" :key="s.id" :label="s.name" :value="s.id" />
         </el-select>
         <el-input

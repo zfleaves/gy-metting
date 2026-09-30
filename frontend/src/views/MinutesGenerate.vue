@@ -9,7 +9,7 @@
     <div class="form-section">
       <div class="field">
         <label>选择转写任务 <span class="required">*</span></label>
-        <el-select v-model="taskId" placeholder="-- 请选择已完成转写的任务 --" style="width: 100%">
+        <el-select v-model="taskId" placeholder="-- 请选择已完成转写的任务 --" style="width: 100%" filterable>
           <el-option v-for="t in tasks" :key="t.id" :value="t.id" :label="t.name || t.id.slice(0, 8)" />
         </el-select>
         <div v-if="taskId && selectedMeeting" class="selected-meeting">
@@ -135,26 +135,35 @@
         <span>{{ phaseMessage }}</span>
       </div>
 
-      <!-- 质量验证结果 -->
+      <!-- 验证/修正状态消息（不混入正文） -->
+      <div v-if="statusMessage && generating" class="status-bar">
+        <span>{{ statusMessage }}</span>
+      </div>
+
+      <!-- 质量验证结果（Element Plus 手风琴） -->
       <div v-if="verifyResult" class="verify-card">
-        <div class="verify-header">
+        <div class="verify-header" @click="toggleVerifyCollapse">
           <span class="verify-icon">🔍</span>
           <span class="verify-title">质量验证结果</span>
           <span class="verify-score" :class="scoreClass(verifyResult.score)">
             {{ verifyResult.score }}/100
           </span>
+          <el-icon class="collapse-icon" :class="{ rotated: verifyExpanded }"><ArrowDown /></el-icon>
         </div>
-        <div v-if="verifyResult.issues?.length" class="verify-issues">
-          <div class="verify-subtitle">⚠️ 问题列表</div>
-          <div v-for="(issue, i) in verifyResult.issues" :key="i" class="verify-issue-item">
-            <span class="issue-severity" :class="severityClass(issue.severity)">{{ issue.severity || '一般' }}</span>
-            {{ issue.text || issue }}
-          </div>
-        </div>
-        <div v-if="verifyResult.suggestions?.length" class="verify-suggestions">
-          <div class="verify-subtitle">💡 改进建议</div>
-          <div v-for="(s, i) in verifyResult.suggestions" :key="i" class="verify-suggestion-item">• {{ s.text || s }}</div>
-        </div>
+        <el-collapse v-model="verifyActivePanel" accordion>
+          <el-collapse-item name="issues" title="⚠️ 问题列表">
+            <div v-if="verifyResult.issues?.length">
+              <div v-for="(issue, i) in verifyResult.issues" :key="i" class="verify-issue-item">
+                <span class="issue-severity" :class="severityClass(issue.severity)">{{ issue.severity || '一般' }}</span>
+                {{ issue.text || issue }}
+              </div>
+            </div>
+            <div v-else class="verify-no-issues">✅ 未检测到明显问题</div>
+          </el-collapse-item>
+          <el-collapse-item v-if="verifyResult.suggestions?.length" name="suggestions" title="💡 改进建议">
+            <div v-for="(s, i) in verifyResult.suggestions" :key="i" class="verify-suggestion-item">• {{ s.text || s }}</div>
+          </el-collapse-item>
+        </el-collapse>
       </div>
 
       <div class="result-body" ref="resultBody">
@@ -225,6 +234,7 @@ import { useRouter, useRoute } from 'vue-router'
 import { listTasks, listMeetings, updateMinutes, listPreferences } from '../api.js'
 import { marked } from 'marked'
 import { toast } from '../toast.js'
+import { ArrowDown } from '@element-plus/icons-vue'
 
 marked.setOptions({ breaks: true, gfm: true })
 
@@ -238,55 +248,84 @@ const temperature = ref(0.3)
 const maxTokens = ref(16384)
 const templates = ['通用', '需求评审', '技术评审', '周会']
 const templateDesc = {
-  '通用': '通用结构化输出：会议摘要、关键决策、待办事项、风险问题',
-  '需求评审': '需求评审专用：评审结论、关键决策、待办事项、风险问题、变更记录（对照 PRD）',
-  '技术评审': '技术评审专用：技术方案结论、关键决策、技术风险、架构变更',
-  '周会': '周会/例会专用：上周进展、本周计划、风险阻塞、待办事项',
+  '通用': '动态模块：会议摘要、已达成决策、待办事项、讨论议题、变更记录（有参考文档时）',
+  '需求评审': '动态模块：评审结论、已达成决策、待办事项、讨论分歧、变更记录（有参考文档时）',
+  '技术评审': '动态模块：技术方案结论、技术决策、待办事项、技术分歧、架构变更（有参考文档时）',
+  '周会': '动态模块：上周进展、本周计划、待办事项、关键决策、风险阻塞',
 }
 const templatePrompts = {
-  '通用': `你是一个专业的会议纪要助手，负责将会议转写文本整理为结构化的会议纪要。
+  '通用': `你是一位专业的会议纪要撰写专家。请根据【会议转写文本】生成结构化的会议纪要。
 
-## 输入说明
-【会议转写文本】：会议录音转写原始文本，优先级最高
-【参考文档】：可选，仅作为业务基线；若无参考文档，则相关对比章节直接填写「无参考文档，无需对比」
+## 核心原则
 
-## 核心约束（必须严格遵守）
-1. 全部决策、变更、待办、风险，必须来自会议转写文本，严禁编造任何原文不存在的信息；
-2. 参考文档仅作为业务基线，文档有但会上未讨论的内容，严禁输出评审/判断结论；
-3. 会议口头讨论优先级高于参考文档，二者发生冲突时以会议口头结论为准，并做好标注；
-4. 识别不到责任人统一标记【未指定责任人】，识别不到截止时间统一标记【时间待确认】，禁止自行编造人名、时间；
-5. 过滤闲聊、寒暄、跑题内容，只保留有效业务信息；
-6. 任意模块无对应信息，直接填写「无」，禁止虚构内容填充表格；
-7. 无法从文本提取会议主题，填写【未识别会议主题】；无法提取业务背景，填写【从会议文本中未获取业务背景】；
-8. 区分信息类型：已落地决策、讨论过但未达成一致、待执行待办，不可互相混淆。
+0. **直接输出**：严禁输出任何开头语、解释、说明或结束语，直接输出会议纪要正文；
+1. **仅源于会议**：每条决策、待办、议题都必须在转写文本中有对应的原话依据。转写文本中找不到依据的，**严禁写入**；
+2. **文档隔离**：参考文档内容**只能**出现在「变更记录」模块。决不允许把文档内容当作「已达成决策」输出；
+3. **口头讨论优先**：口头结论与文档冲突时，以口头为准并在变更记录中标注；
+4. **过滤噪音**：过滤闲聊、寒暄、跑题，只保留有效业务信息。
 
-## 输出格式（严格使用Markdown，不要新增自定义模块）
-
-### 会议基本信息
-- **会议主题**：{meeting_title}
-- **会议类型**：通用
-- **业务背景**：{background}
+## 输出模块（动态展示，有内容才输出，无内容则跳过）
 
 ### 会议摘要
-简要概括本次会议核心内容，100-250字，不要复述细节，只写整体目标与主要进展。
+（用 100-250 字概括本次会议核心内容：讨论目标、主要进展、关键结论，不要复述细节）
 
-### 讨论分歧&未决议题
-> 记录会上有争议、进行过讨论，但暂未形成最终结论的事项
-
-### 关键决策
-| 决策项 | 决策内容 | 决策人 |
-|--------|---------|--------|
+### 已达成决策
+- **{决策项}**：{决策内容}（决策人：{角色/姓名}）
+- 每项用 "- **标题**：内容（决策人：xxx）" 格式
 
 ### 待办事项
-| 待办项 | 责任人 | 截止时间 | 备注 |
-|--------|--------|---------|------|
+- {待办描述} @{责任人} 截止：{截止时间}
+- 每项用 "- {描述} @{角色} 截止：{时间}" 格式
 
-### 风险与问题
-| 风险/问题 | 影响 | 建议方案 |
-|----------|------|---------|
+### 讨论议题
+> 客观记录议题讨论过程，无则跳过此模块
+- **{议题}**：{讨论内容}
+
+### 变更记录
+> 仅在有参考文档时输出，无参考文档则跳过此模块
+- **变更项**：xxx
+- **原内容**：xxx
+- **现内容**：xxx
 
 ### 会议参与人
-根据会议讨论中提到的参与人整理；提取不到则填写：未从会议文本识别参会人员`,
+- {角色/姓名}（{角色说明}）
+
+## 关键提取规则
+
+**待办提取**：转写文本中出现以下关键词的语句，优先提取为待办：
+「需要」「要」「必须」「负责」「跟进」「确认」「安排」「决定」「待定」「考虑」「评估」「调研」「优化」「修改」「调整」「推动」「落实」
+
+**责任人推断**：
+- 优先从上下文找具体人名
+- 其次推断角色
+- 完全找不到时写「待确认」，禁止使用「【未指定责任人】」
+
+**参会人推断**：
+- 从「XX说」「XX认为」「XX觉得」「XX提到」等句式提取人名
+- 结合上下文推断角色
+- 找不到具体人名时根据讨论内容推断角色
+
+## 输出示例
+
+\`\`\`
+### 会议摘要
+本次会议主要讨论了 Q3 用户增长策略，明确了上线前的三个关键节点：A/B 测试方案设计、多渠道推广渠道对接、数据埋点验收。
+
+### 已达成决策
+- **A/B 测试方案**：采用客户端分桶方案，流量按 1:1 分流，决策人：产品负责人
+- **灰度节奏**：先 10% 内测 3 天 → 全量开放，决策人：技术负责人
+
+### 待办事项
+- 输出 A/B 测试详细方案 @产品经理 截止：周五
+- 完成数据埋点设计文档 @后端开发 截止：周四
+- 准备推广渠道对接技术方案 @前端开发 截止：下周一
+
+### 会议参与人
+- 张总（产品负责人）
+- 李明（技术负责人）
+- 王芳（数据分析）
+- 赵岩（后端开发）
+\`\`\``,
 
   '需求评审': `你是一个专业的会议纪要助手，负责将会议转写文本整理为结构化的需求评审纪要。
 
@@ -295,14 +334,38 @@ const templatePrompts = {
 【参考文档】：可选，作为业务基线；本次若无参考文档，则变更记录章节直接填：无参考文档，不输出变更对比
 
 ## 核心约束（必须严格遵守）
-1. 全部决策、变更、待办、风险，必须来自会议转写文本，严禁编造任何原文不存在信息；
-2. 参考文档仅作为业务基线，文档有但会上**未讨论**的内容，严禁输出评审结论；
+0. **直接输出**：严禁输出任何开头语、解释、说明或结束语，直接输出会议纪要正文；
+1. **仅源于会议**：每条决策、待办、分歧都必须在转写文本中有对应原话，严禁编造；
+2. **文档隔离**：参考文档内容**只能**出现在「变更记录」模块，决不允许当成决策/待办输出；
 3. 会议口头讨论优先级高于参考文档，二者发生冲突时以会议口头结论为准，并在变更记录中标注该变更；
 4. 识别不到责任人统一标记【未指定责任人】，识别不到截止时间统一标记【时间待确认】，禁止自行编造人名与时间；
 5. 过滤闲聊、跑题、寒暄内容，只保留有效业务评审信息；
-6. 若某模块没有对应信息，直接填写「无」，禁止为了填充表格虚构内容；
+6. ⚠️ **表格一致性规则（严格遵循）**：
+   a. 评审结论写「未形成明确评审结论」时，"### 关键决策"标题必须改为"### 讨论方案汇总（待后续确认）"，且表格必须在「决策人」后增加「状态」列（值填"待确认"或"已确认"），严禁使用"关键决策"这个说法避免矛盾；
+   b. 任一张表格**无内容**时，不能只填"无"或留空，须在表头下方加说明行，格式为：\`> 本次会议暂未涉及相关内容，无对应信息可填写\`；
+   c. 待办事项表格中，如果所有行的「责任人」和「截止时间」都是占位符，须在表格末尾加行说明：\`> ⚠️ 以上待办均未在会议中明确责任人和截止时间，需会后补充确认\`；
+   d. 风险与问题表格如果全部为「无」，须替换为：\`> 本次会议未识别出风险与问题，无需处理\`；
 7. 无法从文本提取会议主题，填写【未识别会议主题】；无法提取业务背景，填写「从会议文本中未获取业务背景」；
 8. 区分三类信息：①已拍板决策 ②讨论过但未达成共识 ③待执行待办，不可互相混淆。
+	9. ⚠️ **讨论方案汇总填写规则（严禁填"无"）**：
+	   评审结论写「未形成明确评审结论」时，"### 讨论方案汇总（待后续确认）"表格必须遵守：
+	   a. 只要会上对某个议题进行了讨论（不论是否达成结论），就必须在表中列出；
+	   b. 状态填「待确认」或「已确认」；
+	   c. **错误示例**（会扣分）：整表填"无" ❌
+	   d. **正确示例**（应得分）：
+	      | 议题 | 讨论内容 | 决策人 | 状态 |
+	      |------|---------|--------|------|
+	      | 奖品规格确认 | 讨论了去年方案与其他方案的差异，未达成一致 | 待确认 | 待确认 |
+	      | 推广时间排期 | 讨论了9月排期安排 | 运营 | 待确认 |
+	10. ⚠️ **待办事项填写规则（严禁填"无"）**：
+	    a. 从转写文本中提取所有包含以下关键词的内容：「需要」「要」「必须」「负责」「跟进」「安排」「确认」「决定」「待定」「考虑」「评估」「调研」；
+	    b. 每个关键词关联的内容必须形成一条待办，责任人找不到填「待确认」而非「【未指定责任人】」；
+	    c. 截止时间不确定也填「待确认」，严禁填「无」；
+	    d. 待办与未决议题不矛盾：未决议题 = 待讨论的议题，待办 = 需要有人去推进/确认的行动项，同一个议题可能同时出现在两个表中；
+	11. **会议参与人填写规则**：
+	    a. 从转写文本中提取所有人名、角色称呼（产品/运营/开发/设计/测试/项目经理等）；
+	    b. 如果无法提取具体姓名，至少根据讨论内容推断参与角色，如「产品经理、运营、开发（具体姓名待确认）」；
+	    c. 严禁直接写「未从会议文本识别参会人员」——文本中至少能推断出有几方角色在发言。
 
 ## 输出格式（严格使用Markdown，不要额外增加模块）
 
@@ -315,13 +378,15 @@ const templatePrompts = {
 （输出本次需求评审的最终结论：通过 / 不通过 / 有条件通过；如果会上未给出明确评审结论，输出：「本次会议未形成明确评审结论，需后续继续评审」）
 
 ### 讨论分歧点
-> 记录会上各方不同意见、争议点，仅做客观记录，不输出结论
+> 逐条记录会上各方不同意见、争议点，每条一行，格式：\`- 【议题】争议方A认为…，争议方B认为…\`
 
-### 关键决策
-| 决策项 | 决策内容 | 决策人 |
-|--------|---------|--------|
+### 讨论方案汇总（待后续确认）
+> 当评审结论为「未形成明确评审结论」时，此标题替代"关键决策"。**只要会议上讨论过的议题都必须列出，不能填"无"。**
+| 议题 | 讨论内容 | 决策人 | 状态 |
+|------|---------|--------|------|
 
 ### 待办事项
+> 从转写文本中提取所有需跟进的内容，**即使未指定责任人和时间也要列出行、填"待确认"**。
 | 待办项 | 责任人 | 截止时间 | 备注 |
 |--------|--------|---------|------|
 
@@ -336,96 +401,163 @@ const templatePrompts = {
 > 与参考文档不一致的变更点，以会议口头讨论为准；无参考文档则填写：无参考文档，不输出变更对比
 
 ### 会议参与人
-（根据会议讨论中提到的参与人整理；提取不到则填写：未从会议文本识别参会人员）`,
+（根据会议讨论中提到的参与人整理；至少推断出参与角色，如「产品经理、运营、开发（具体姓名待确认）」；严禁直接写"未从会议文本识别参会人员"）`,
 
-  '技术评审': `你是一个专业的会议纪要助手，负责将技术评审会议转写文本整理为结构化的技术评审纪要。
+    '技术评审': `你是一位专业的会议纪要撰写专家。请根据【会议转写文本】生成结构化的技术评审纪要。
 
-## 输入说明
-【会议转写文本】：会议录音转写原始文本，优先级最高
-【参考文档】：可选，技术方案文档作为基线；若无参考文档，则架构变更模块填写「无参考文档，不做变更对比」
+## 核心原则
 
-## 核心约束（必须严格遵守）
-1. 全部决策、变更、待办、风险，必须来自会议转写文本，严禁编造任何原文不存在信息；
-2. 参考文档仅作为业务基线，文档有但会上未讨论的内容，严禁输出评审结论；
-3. 会议口头讨论优先级高于参考文档，发生冲突时以会议为准并标注变更；
-4. 识别不到责任人统一标记【未指定责任人】，识别不到截止时间统一标记【时间待确认】，禁止自行编造人名、时间；
-5. 过滤闲聊、跑题、寒暄内容，只保留有效技术评审信息；
-6. 任意模块无对应信息，直接填写「无」，禁止虚构内容填充表格；
-7. 无法从文本提取会议主题填写【未识别会议主题】；无法提取业务背景填写【从会议文本中未获取业务背景】；
-8. 会议参与人提取不到则填写：未从会议文本识别参会人员；
-9. 区分信息：已拍板技术决策、技术争议分歧、待执行待办，不可互相混淆。
+0. **直接输出**：严禁输出任何开头语、解释、说明或结束语，直接输出会议纪要正文；
+1. **仅源于会议**：每条决策、待办、分歧都必须在转写文本中有对应原话，严禁编造；
+2. **文档隔离**：参考文档内容**只能**出现在「架构变更」模块，决不允许当成技术决策输出；
+2. **参考文档仅做基线**：文档有但会上未讨论的内容，严禁输出评审结论；
+3. **口头讨论优先**：口头结论与文档冲突时，以口头为准，并在架构变更中标注；
+4. **过滤噪音**：过滤闲聊、跑题、寒暄，只保留有效技术评审信息。
 
-## 输出格式（严格使用Markdown，禁止新增自定义模块）
-
-### 会议基本信息
-- **会议主题**：{meeting_title}
-- **会议类型**：技术评审
-- **业务背景**：{background}
+## 输出模块（动态展示，有内容才输出，无内容则跳过）
 
 ### 技术方案评审结论
-输出技术方案的评审结论：通过 / 不通过 / 修改后通过；
-若本次会议未对方案给出明确评审结论，则输出：**本次会议未形成明确技术评审结论，需后续继续评审**
+（一句话结论：通过 / 不通过 / 修改后通过；未形成结论则写「本次会议未形成明确技术评审结论，需后续继续评审」）
 
-### 技术分歧与未决议题
-> 记录会上各方技术争议点、讨论过但暂未达成最终结论的技术问题
-
-### 关键决策
-| 决策项 | 决策内容 | 决策人 |
-|--------|---------|--------|
+### 已达成技术决策
+- **{决策项}**：{决策内容}（决策人：{角色/姓名}）
+- 每项用 "- **标题**：内容（决策人：xxx）" 格式
 
 ### 待办事项
-| 待办项 | 责任人 | 截止时间 | 备注 |
-|--------|--------|---------|------|
+- {待办描述} @{责任人} 截止：{截止时间}
+- 每项用 "- {描述} @{角色} 截止：{时间}" 格式
 
-### 技术风险
-| 风险项 | 影响范围 | 应对方案 |
-|--------|---------|---------|
+### 技术分歧 & 未决议题
+> 客观记录各方技术争议点、讨论过但暂未达成结论的问题，无则跳过此模块
 
 ### 架构变更
-> 涉及架构、接口、模块、存储、流程调整的变更点；无参考文档填写「无参考文档，不做变更对比」
+> 仅在有参考文档时输出，无参考文档则跳过此模块
+- **变更项**：xxx
+- **原方案**：xxx
+- **现方案**：xxx
+- **原因**：xxx
+
+### 技术风险
+> 识别到的技术风险项，无则跳过此模块
+- **风险**：xxx，**影响**：xxx，**应对**：xxx
 
 ### 会议参与人
-（根据会议讨论中提到的参与人整理，提取不到则填写：未从会议文本识别参会人员）`,
+- {角色/姓名}（{角色说明}）
 
-  '周会': `你是一个专业的会议纪要助手，负责将周会/例会转写文本整理为结构化的会议纪要。
+## 关键提取规则
 
-## 输入说明
-【会议转写文本】：会议录音转写原始文本，优先级最高；周会一般无参考文档。
+**待办提取**：转写文本中出现以下关键词的语句，优先提取为待办：
+「需要」「要」「必须」「负责」「跟进」「确认」「安排」「决定」「待定」「考虑」「评估」「调研」「优化」「修改」「调整」「重构」「兼容」「迁移」「推动」「落实」
 
-## 核心约束（必须遵守）
-1. 全部决策、变更、待办、风险，必须来自会议转写文本，严禁编造任何原文不存在信息；
-2. 过滤闲聊、寒暄、跑题内容，只保留有效业务信息；
-3. 识别不到责任人统一标记【未指定责任人】，识别不到截止时间统一标记【时间待确认】，禁止自行编造人名、时间；
-4. 任意模块无对应信息，直接填写「无」，禁止虚构内容填充表格；
-5. 无法从文本提取会议主题填写【未识别会议主题】；无法提取业务背景填写【从会议文本中未获取业务背景】；
-6. 上周进展、本周计划使用条目化输出，不要大段长段落，客观复述同步内容，不要主观加工。
+**责任人推断**：
+- 优先从上下文找具体人名
+- 其次推断角色（架构师 / 后端开发 / 前端开发 / QA / DBA 等）
+- 完全找不到时写「待确认」，禁止使用「【未指定责任人】」
 
-## 输出格式（严格使用Markdown，禁止新增自定义模块）
+**参会人推断**：
+- 从「XX说」「XX认为」「XX提到」等句式提取人名
+- 结合上下文推断技术角色
 
-### 会议基本信息
-- **会议主题**：{meeting_title}
-- **会议类型**：周会
-- **业务背景**：{background}
+## 输出示例
 
-### 上周进展
-> 各成员/项目上周已完成工作同步，使用-条目罗列
+\`\`\`
+### 技术方案评审结论
+有条件通过，需补充数据迁移方案和回滚策略后再次评审。
 
-### 本周计划
-> 本周重点工作、目标安排，使用-条目罗列
-
-### 会上关键决策
-> 周会过程中临时敲定的决议，无则填无
-
-### 风险与阻塞
-| 风险/阻塞项 | 责任人 | 需要支持 |
-|------------|--------|---------|
+### 已达成技术决策
+- **数据库选型**：从 MySQL 迁移至 PostgreSQL，决策人：后端架构师
+- **缓存方案**：采用 Redis Cluster，淘汰原 Memcached 方案，决策人：技术负责人
 
 ### 待办事项
-| 待办项 | 责任人 | 截止时间 |
-|--------|--------|---------|
+- 输出数据迁移方案，包含回滚策略 @后端架构师 截止：9月5日
+- 评估 PostgreSQL 兼容性，对齐现有 ORM 层 @后端开发 截止：9月3日
+- 准备性能对比测试报告 @QA 截止：9月7日
+
+### 技术分歧 & 未决议题
+> 关于消息队列选型，架构师推荐 RocketMQ，开发团队倾向 RabbitMQ（团队更熟悉），待 POC 测试后决定。
+
+### 架构变更
+- **变更项**：数据库
+- **原方案**：MySQL 5.7
+- **现方案**：PostgreSQL 15
+- **原因**：评审会上一致认为现有 MySQL 在 JSON 查询和全文检索场景下性能瓶颈明显
 
 ### 会议参与人
-根据会议讨论中提到的参与人整理；提取不到则填写：未从会议文本识别参会人员`,
+- 陈总（技术负责人）
+- 刘工（后端架构师）
+- 小周（后端开发）
+- 林姐（QA）
+\``,
+
+  '周会': `你是一位专业的会议纪要撰写专家。请根据【会议转写文本】生成结构化的周会纪要。
+
+## 核心原则
+
+0. **直接输出**：严禁输出任何开头语、解释、说明或结束语，直接输出会议纪要正文；
+1. **仅源于会议**：每条进展、计划、决策都必须在转写文本中有对应原话，严禁编造；
+2. **客观复述**：各成员同步的进展用条目化客观复述，不要主观加工或评价；
+3. **过滤噪音**：过滤闲聊、寒暄、跑题，只保留有效业务信息；
+4. **周会一般无参考文档**，变更记录模块不输出。
+
+## 输出模块（动态展示，有内容才输出，无内容则跳过）
+
+### 上周进展
+- {项目/模块}：{完成事项}（负责人：{角色/姓名}）
+- 按项目或模块分组，每条 "- {内容}（负责人：xxx）"
+
+### 本周计划
+- {项目/模块}：{计划事项}（负责人：{角色/姓名}）
+- 按项目或模块分组，每条 "- {内容}（负责人：xxx）"
+
+### 关键决策
+> 周会过程中临时敲定的决议，无则跳过此模块
+- **{决策项}**：{决策内容}（{角色/姓名}）
+
+### 待办事项
+- {待办描述} @{责任人} 截止：{截止时间}
+- 每项用 "- {描述} @{角色} 截止：{时间}" 格式
+
+### 风险与阻塞
+> 识别到的风险或阻塞项，无则跳过此模块
+- **{风险/阻塞}**：{描述}，责任人：{角色}，需要支持：{事项}
+
+### 会议参与人
+- {角色/姓名}（{角色说明}）
+
+## 关键提取规则
+
+**待办提取**：转写文本中出现以下关键词的语句，优先提取为待办：
+「需要」「要」「必须」「负责」「跟进」「确认」「安排」「决定」「待定」「考虑」「评估」「调研」「优化」「修改」「调整」「推动」「落实」「赶」「这周出」「下周完成」
+
+**责任人推断**：
+- 优先从上下文找具体人名
+- 其次推断角色
+- 完全找不到时写「待确认」，禁止使用「【未指定责任人】」
+
+## 输出示例
+
+\`\`\`
+### 上周进展
+- 用户管理模块：完成列表页重构和权限联调（负责人：赵岩）
+- 数据报表：完成 PV/UV 看板开发，已提测（负责人：王芳）
+- 性能优化：数据库慢查询已定位 3 条，正在优化中（负责人：刘工）
+
+### 本周计划
+- 用户管理模块：补充审批流异常处理（负责人：赵岩）
+- 数据报表：修复测试反馈的 2 个 bug，周三前提测（负责人：王芳）
+- 性能优化：完成慢查询优化并上线（负责人：刘工）
+
+### 待办事项
+- 修复用户权限缓存不同步问题 @赵岩 截止：本周三
+- 配合测试完成报表回归测试 @王芳 截止：本周四
+- 输出数据库索引优化方案 @刘工 截止：本周五
+
+### 会议参与人
+- 李明（技术负责人）
+- 赵岩（后端开发）
+- 王芳（测试/全栈）
+- 刘工（架构师）
+\``,
 }
 const showPrompt = ref(false)
 
@@ -448,10 +580,17 @@ const saving = ref(false)
 const adoptedPrefs = ref([])
 const selectedPrefIds = ref([])
 // RAG + 验证（从 localStorage 加载工作流配置）
-const ragEnabled = ref(localStorage.getItem('workflow_rag_enabled') === 'true')
-const verifyEnabled = ref(localStorage.getItem('workflow_verify_enabled') === 'true')
+const workflowCfg = JSON.parse(localStorage.getItem('workflow_config') || '{}')
+const ragEnabled = ref(workflowCfg.rag_enabled ?? false)
+const verifyEnabled = ref(workflowCfg.verify_enabled ?? false)
 const phaseMessage = ref('')
+const statusMessage = ref('')
 const verifyResult = ref(null) // { score, issues, suggestions }
+const verifyActivePanel = ref('issues')
+const verifyExpanded = computed(() => !!verifyActivePanel.value)
+function toggleVerifyCollapse() {
+  verifyActivePanel.value = verifyExpanded.value ? '' : 'issues'
+}
 // 重新生成弹窗
 const showRegenDialog = ref(false)
 const regenReason = ref('')
@@ -606,8 +745,11 @@ async function startGenerate(regenOpts) {
               issues: data.issues || [],
               suggestions: data.suggestions || [],
             }
+          } else if (data.type === 'status') {
+            statusMessage.value = data.message || ''
           } else if (data.type === 'done') {
             // 完成：先清空 pendingBuffer，再标记 done
+            statusMessage.value = ''
             if (typingTimer) { clearInterval(typingTimer); typingTimer = null }
             // 立即显示剩余内容
             resultText.value += pendingBuffer.value
@@ -630,6 +772,7 @@ async function startGenerate(regenOpts) {
             }
           } else if (data.type === 'error') {
             if (typingTimer) { clearInterval(typingTimer); typingTimer = null }
+            statusMessage.value = ''
             resultText.value += pendingBuffer.value
             pendingBuffer.value = ''
             resultText.value = `错误: ${data.message}`
@@ -879,22 +1022,30 @@ async function copyPrompt() {
 .phase-indicator { display: flex; align-items: center; gap: 8px; padding: 10px 20px; background: #eef2ff; color: #4f46e5; font-size: 0.85rem; font-weight: 500; border-bottom: 1px solid #e2e8f0; }
 .spinner-small { width: 14px; height: 14px; border: 2px solid #c7d2fe; border-top-color: #4f46e5; border-radius: 50%; animation: spin 0.7s linear infinite; flex-shrink: 0; }
 @keyframes spin { to { transform: rotate(360deg); } }
+/* 验证/修正状态条（不混入正文） */
+.status-bar { display: flex; align-items: center; gap: 8px; padding: 6px 20px; background: #fffbeb; color: #92400e; font-size: 0.82rem; border-bottom: 1px solid #fde68a; }
 
 /* 质量验证结果卡片 */
-.verify-card { margin: 0 20px; padding: 14px 16px; border: 1px solid #dbeafe; border-radius: 8px; background: #f0f7ff; }
-.verify-header { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.verify-card { margin: 0 20px; padding: 0; border: 1px solid #dbeafe; border-radius: 8px; background: #f0f7ff; overflow: hidden; }
+.verify-card :deep(.el-collapse-item__header) { padding: 0 16px; font-size: 0.82rem; font-weight: 500; background: #f0f7ff; }
+.verify-card :deep(.el-collapse-item__wrap) { background: #f0f7ff; border-bottom: none; }
+.verify-card :deep(.el-collapse-item__content) { padding: 0 16px 12px; }
+.verify-card :deep(.el-collapse) { border-top: none; }
+.verify-header { display: flex; align-items: center; gap: 8px; padding: 10px 16px; cursor: pointer; user-select: none; }
+.verify-header:hover { background: #e8f2ff; }
 .verify-icon { font-size: 1.1rem; }
 .verify-title { font-weight: 600; font-size: 0.85rem; color: #1e40af; }
 .verify-score { margin-left: auto; padding: 2px 10px; border-radius: 12px; font-weight: 700; font-size: 0.85rem; }
 .score-good { background: #dcfce7; color: #16a34a; }
 .score-ok { background: #fef3c7; color: #d97706; }
 .score-bad { background: #fee2e2; color: #dc2626; }
-.verify-subtitle { font-size: 0.82rem; font-weight: 500; color: #475569; margin: 8px 0 4px; }
-.verify-issues { margin-bottom: 4px; }
+.collapse-icon { font-size: 0.9rem; color: #94a3b8; transition: transform 0.2s; }
+.collapse-icon.rotated { transform: rotate(180deg); }
 .verify-issue-item { font-size: 0.82rem; color: #334155; padding: 3px 0; display: flex; align-items: flex-start; gap: 6px; }
 .issue-severity { display: inline-block; padding: 0 5px; border-radius: 3px; font-size: 0.7rem; font-weight: 500; white-space: nowrap; flex-shrink: 0; }
 .sev-critical { background: #fee2e2; color: #dc2626; }
 .sev-normal { background: #fef3c7; color: #d97706; }
 .sev-minor { background: #e0f2fe; color: #0284c7; }
 .verify-suggestion-item { font-size: 0.82rem; color: #475569; padding: 2px 0; }
+.verify-no-issues { font-size: 0.82rem; color: #16a34a; padding: 4px 0; }
 </style>

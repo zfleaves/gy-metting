@@ -162,9 +162,11 @@ async def generate_minutes(
             prompt_used = messages[0]["content"] if messages else ""
 
             from src.llm.adapter import get_llm_adapter
-            from src.llm.workflow import run_minutes_workflow
+            from src.llm.workflow import run_minutes_workflow, post_process_minutes
 
             yield f"data: {json.dumps({'type': 'start', 'message': '开始生成纪要...'})}\n\n"
+
+            adapter = get_llm_adapter()
 
             if rag_enabled or verify_enabled:
                 # 使用多智能体工作流
@@ -183,11 +185,16 @@ async def generate_minutes(
                         yield f"data: {json.dumps({'type': 'chunk', 'text': event['text']})}\n\n"
                     elif event["type"] == "verify_result":
                         yield f"data: {json.dumps({'type': 'verify', 'score': event['score'], 'issues': event.get('issues', []), 'suggestions': event.get('suggestions', [])})}\n\n"
+                    elif event["type"] == "status":
+                        yield f"data: {json.dumps({'type': 'status', 'message': event['message']})}\n\n"
                     elif event["type"] == "error":
                         raise Exception(event["message"])
+                    elif event["type"] == "done":
+                        # 使用工作流的最终 full_text（可能经过修正循环）
+                        if event.get("text"):
+                            full_text = event["text"]
             else:
                 # 原始直接生成
-                adapter = get_llm_adapter()
                 async for chunk in adapter.chat(
                     messages=messages,
                     temperature=temperature,
@@ -197,6 +204,14 @@ async def generate_minutes(
                     if chunk:
                         full_text += chunk
                         yield f"data: {json.dumps({'type': 'chunk', 'text': chunk})}\n\n"
+
+            # 后处理一致性校验（适用所有生成路径）
+            processed = post_process_minutes(full_text)
+            if processed != full_text:
+                diff_lines = sum(1 for a, b in zip(full_text.split("\n"), processed.split("\n")) if a != b)
+                diff_lines += abs(len(full_text.split("\n")) - len(processed.split("\n")))
+                full_text = processed
+                yield f"data: {json.dumps({'type': 'chunk', 'text': f'\n\n> 🔧 自动修复 {diff_lines} 处格式/一致性问题\n\n'})}\n\n"
 
             total_tokens = adapter.count_tokens(full_text)
 

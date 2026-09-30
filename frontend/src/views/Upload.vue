@@ -8,7 +8,7 @@
     <!-- 关联会议选择 -->
     <div class="meeting-selector">
       <label>关联会议/需求</label>
-      <el-select v-model="selectedMeetingId" placeholder="-- 不关联 --" style="flex: 1" clearable>
+      <el-select v-model="selectedMeetingId" placeholder="-- 不关联 --" style="flex: 1" clearable filterable>
         <el-option v-for="m in meetings" :key="m.id" :value="m.id" :label="`${m.title}（${m.snapshot_ids?.length || 0} 个文档）`" />
       </el-select>
       <el-button @click="showNewMeeting = true">+ 新增会议</el-button>

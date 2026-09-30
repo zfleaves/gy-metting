@@ -87,7 +87,7 @@
     <!-- 关联会议弹窗 -->
     <el-dialog v-model="assocVisible" title="关联会议" width="420">
       <p v-if="assocTask?.name">任务：<strong>{{ assocTask.name }}</strong></p>
-      <el-select v-model="assocMeetingId" placeholder="选择会议" class="w-full" clearable>
+      <el-select v-model="assocMeetingId" placeholder="选择会议" class="w-full" clearable filterable>
         <el-option label="-- 不关联 --" value="" />
         <el-option v-for="m in meetings" :key="m.id" :label="m.title" :value="m.id" />
       </el-select>

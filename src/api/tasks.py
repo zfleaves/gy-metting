@@ -73,7 +73,7 @@ async def submit_task(
     if len(paths) == 1 and tt == TaskType.ASR:
         manager = get_task_manager()
         existing_tasks = manager.list_tasks(status="completed", task_type="asr", limit=100)
-        for t in existing_tasks:
+        for t in (existing_tasks.get("records") or []):
             try:
                 summary = json.loads(t.get("result_summary", "{}"))
                 if summary.get("audio_path") == paths[0]:

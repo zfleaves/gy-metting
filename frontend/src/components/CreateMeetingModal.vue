@@ -28,7 +28,7 @@
           <el-tab-pane label="🦜 语雀拉取" name="yuque">
             <div class="res-panel">
               <div class="yuque-form">
-                <el-select v-model="yuqueSourceId" placeholder="-- 选择语雀来源 --" style="min-width: 160px">
+                <el-select v-model="yuqueSourceId" placeholder="-- 选择语雀来源 --" style="min-width: 160px" filterable>
                   <el-option v-for="s in yuqueSources" :key="s.id" :label="s.name" :value="s.id" />
                 </el-select>
                 <el-input v-model="yuqueRequirementId" placeholder="需求号，如 SCPRO-1071" style="flex: 1" />
