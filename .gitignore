@@ -42,3 +42,6 @@ test-results/
 # 临时/杂散文件
 frontend/⚠️
 frontend/本次会议未涉及相关内容
+
+# Playwright 测试依赖
+package.json
