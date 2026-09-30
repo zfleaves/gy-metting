@@ -55,7 +55,12 @@ const routes = [
   {
     path: '/llm-sources',
     name: 'LlmSources',
-    component: () => import('../views/LlmSources.vue'),
+    component: () => import('../views/Models.vue'),
+  },
+  {
+    path: '/models',
+    name: 'Models',
+    component: () => import('../views/Models.vue'),
   },
   {
     path: '/minutes',

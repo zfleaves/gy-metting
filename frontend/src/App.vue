@@ -1,69 +1,71 @@
 <template>
-  <div id="app" :class="{
-  'logged-in': currentUser,
-  'logged-out': !currentUser,
-  'detail-view': route.path.startsWith('/yuque-records/') || route.path.startsWith('/meeting/')
-}">
-    <!-- 登录页不显示布局 -->
-    <template v-if="!currentUser">
-      <router-view />
-    </template>
-
-    <!-- 后台布局 -->
-    <template v-else>
-      <aside class="sidebar">
-        <div class="sidebar-header">
-          <h1>gy-meeting</h1>
-          <span class="version">v0.2</span>
-        </div>
-        <nav class="sidebar-nav">
-          <router-link to="/" class="nav-item">
-            <span class="nav-icon">📊</span> 工作台
-          </router-link>
-          <router-link to="/upload" class="nav-item">
-            <span class="nav-icon">🎙️</span> 音频转写
-          </router-link>
-          <router-link to="/documents" class="nav-item">
-            <span class="nav-icon">📄</span> 参考文档
-          </router-link>
-          <router-link to="/yuque-pull" class="nav-item">
-            <span class="nav-icon">🦜</span> 语雀拉取
-          </router-link>
-          <router-link to="/yuque-records" class="nav-item">
-            <span class="nav-icon">📋</span> 拉取记录
-          </router-link>
-          <router-link to="/llm-sources" class="nav-item">
-            <span class="nav-icon">🤖</span> LLM 来源
-          </router-link>
-          <router-link to="/preferences" class="nav-item">
-            <span class="nav-icon">⭐</span> 偏好管理
-          </router-link>
-          <router-link to="/minutes" class="nav-item">
-            <span class="nav-icon">📝</span> AI 纪要
-          </router-link>
-          <router-link v-if="isAdmin" to="/users" class="nav-item">
-            <span class="nav-icon">👥</span> 用户管理
-          </router-link>
-        </nav>
-        <div class="sidebar-footer">
-          <div class="user-info">
-            <div class="avatar">{{ currentUser.username[0].toUpperCase() }}</div>
-            <div class="user-detail">
-              <div class="user-name">{{ currentUser.username }}</div>
-              <div class="user-role">{{ roleLabel(currentUser.role) }}</div>
-            </div>
-          </div>
-          <button class="btn-logout" @click="doLogout" title="退出登录">
-            <span class="nav-icon">🚪</span> 退出
-          </button>
-        </div>
-      </aside>
-      <main class="main-content" :class="{ 'no-scroll': route.path.startsWith('/yuque-records/') || route.path.startsWith('/meeting/') }">
+  <el-config-provider :locale="zhCn">
+    <div id="app" :class="{
+    'logged-in': currentUser,
+    'logged-out': !currentUser,
+    'detail-view': route.path.startsWith('/yuque-records/') || route.path.startsWith('/meeting/')
+  }">
+      <!-- 登录页不显示布局 -->
+      <template v-if="!currentUser">
         <router-view />
-      </main>
-    </template>
-    <Toast ref="toastRef" />
-  </div>
+      </template>
+
+      <!-- 后台布局 -->
+      <template v-else>
+        <aside class="sidebar">
+          <div class="sidebar-header">
+            <h1>gy-meeting</h1>
+            <span class="version">v0.2</span>
+          </div>
+          <nav class="sidebar-nav">
+            <router-link to="/" class="nav-item">
+              <span class="nav-icon">📊</span> 工作台
+            </router-link>
+            <router-link to="/upload" class="nav-item">
+              <span class="nav-icon">🎙️</span> 音频转写
+            </router-link>
+            <router-link to="/documents" class="nav-item">
+              <span class="nav-icon">📄</span> 参考文档
+            </router-link>
+            <router-link to="/yuque-pull" class="nav-item">
+              <span class="nav-icon">🦜</span> 语雀拉取
+            </router-link>
+            <router-link to="/yuque-records" class="nav-item">
+              <span class="nav-icon">📋</span> 拉取记录
+            </router-link>
+            <router-link to="/models" class="nav-item">
+              <span class="nav-icon">🧠</span> 模型管理
+            </router-link>
+            <router-link to="/preferences" class="nav-item">
+              <span class="nav-icon">⭐</span> 偏好管理
+            </router-link>
+            <router-link to="/minutes" class="nav-item">
+              <span class="nav-icon">📝</span> AI 纪要
+            </router-link>
+            <router-link v-if="isAdmin" to="/users" class="nav-item">
+              <span class="nav-icon">👥</span> 用户管理
+            </router-link>
+          </nav>
+          <div class="sidebar-footer">
+            <div class="user-info">
+              <div class="avatar">{{ currentUser.username[0].toUpperCase() }}</div>
+              <div class="user-detail">
+                <div class="user-name">{{ currentUser.username }}</div>
+                <div class="user-role">{{ roleLabel(currentUser.role) }}</div>
+              </div>
+            </div>
+            <button class="btn-logout" @click="doLogout" title="退出登录">
+              <span class="nav-icon">🚪</span> 退出
+            </button>
+          </div>
+        </aside>
+        <main class="main-content" :class="{ 'no-scroll': route.path.startsWith('/yuque-records/') || route.path.startsWith('/meeting/') }">
+          <router-view />
+        </main>
+      </template>
+      <Toast ref="toastRef" />
+    </div>
+  </el-config-provider>
 </template>
 
 <script setup>
@@ -71,6 +73,7 @@ import { ref, computed, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { getStoredUser, logout } from './api.js'
 import Toast from './components/Toast.vue'
+import zhCn from 'element-plus/dist/locale/zh-cn.mjs'
 
 const router = useRouter()
 const route = useRoute()

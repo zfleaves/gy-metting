@@ -8,7 +8,7 @@ import json
 from pathlib import Path
 from typing import Optional
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, HTTPException, Query, Request
 from pydantic import BaseModel
 
 from src.config import get_config
@@ -47,19 +47,32 @@ def _record_to_dict(r: YuquePullRecord) -> dict:
 
 
 @router.get("")
-async def list_records(request: Request):
-    """列出当前用户的所有拉取记录（按时间倒序）"""
+async def list_records(
+    request: Request,
+    search: str = Query("", description="搜索需求号/来源名称"),
+    limit: int = Query(50, ge=1, le=200),
+    offset: int = Query(0, ge=0),
+):
+    """列出拉取记录（分页 + 搜索，按时间倒序）"""
     user = _get_user(request)
     db = SessionLocal()
     try:
-        records = (
+        q = (
             db.query(YuquePullRecord)
             .filter(YuquePullRecord.user_id == user["user_id"])
-            .order_by(YuquePullRecord.created_at.desc())
-            .limit(100)
-            .all()
         )
-        return [_record_to_dict(r) for r in records]
+        if search:
+            q = q.filter(
+                YuquePullRecord.requirement_id.contains(search) |
+                YuquePullRecord.source_name.contains(search) |
+                YuquePullRecord.matched_title.contains(search)
+            )
+        total = q.count()
+        records = q.order_by(YuquePullRecord.created_at.desc()).offset(offset).limit(limit).all()
+        return {
+            "total": total,
+            "records": [_record_to_dict(r) for r in records],
+        }
     finally:
         db.close()
 

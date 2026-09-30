@@ -270,10 +270,13 @@ class TaskManager:
     def list_tasks(
         status: Optional[str] = None,
         task_type: Optional[str] = None,
+        name: Optional[str] = None,
+        date_from: Optional[str] = None,
+        date_to: Optional[str] = None,
         limit: int = 20,
         offset: int = 0,
-    ) -> list[Dict[str, Any]]:
-        """列出任务"""
+    ) -> dict:
+        """列出任务（分页），返回 {total, records}"""
         db = SessionLocal()
         try:
             q = db.query(Task)
@@ -281,8 +284,15 @@ class TaskManager:
                 q = q.filter(Task.status == status)
             if task_type:
                 q = q.filter(Task.type == task_type)
-            q = q.order_by(Task.created_at.desc()).offset(offset).limit(limit)
-            return [_task_to_dict(t) for t in q.all()]
+            if name:
+                q = q.filter(Task.name.contains(name))
+            if date_from:
+                q = q.filter(Task.created_at >= date_from)
+            if date_to:
+                q = q.filter(Task.created_at <= f"{date_to} 23:59:59")
+            total = q.count()
+            records = q.order_by(Task.created_at.desc()).offset(offset).limit(limit).all()
+            return {"total": total, "records": [_task_to_dict(t) for t in records]}
         finally:
             db.close()
 
@@ -321,10 +331,13 @@ def list_tasks_by_user(
     user_id: str,
     status: Optional[str] = None,
     task_type: Optional[str] = None,
+    name: Optional[str] = None,
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None,
     limit: int = 20,
     offset: int = 0,
-) -> list[Dict[str, Any]]:
-    """按用户过滤任务列表"""
+) -> dict:
+    """按用户过滤任务列表，返回 {total, records}"""
     db = SessionLocal()
     try:
         q = db.query(Task).filter(Task.user_id == user_id)
@@ -332,7 +345,14 @@ def list_tasks_by_user(
             q = q.filter(Task.status == status)
         if task_type:
             q = q.filter(Task.type == task_type)
-        q = q.order_by(Task.created_at.desc()).offset(offset).limit(limit)
-        return [_task_to_dict(t) for t in q.all()]
+        if name:
+            q = q.filter(Task.name.contains(name))
+        if date_from:
+            q = q.filter(Task.created_at >= date_from)
+        if date_to:
+            q = q.filter(Task.created_at <= f"{date_to} 23:59:59")
+        total = q.count()
+        records = q.order_by(Task.created_at.desc()).offset(offset).limit(limit).all()
+        return {"total": total, "records": [_task_to_dict(t) for t in records]}
     finally:
         db.close()

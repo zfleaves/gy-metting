@@ -4,12 +4,14 @@
       <router-link to="/minutes" class="btn-back">← 返回列表</router-link>
       <div class="topbar-info" v-if="record">
         <strong>{{ record.title }}</strong>
-        <span class="type-tag">{{ record.meeting_type }}</span>
+        <el-tag size="small" effect="plain">{{ record.meeting_type }}</el-tag>
       </div>
       <div class="topbar-actions" v-if="record">
-        <button class="btn-export" @click="doExport">📥 导出 MD</button>
-        <router-link :to="`/minutes/new?task_id=${record.task_id}`" v-if="record.task_id" class="btn-regen">📝 重新生成</router-link>
-        <button class="btn-del" @click="doDelete">🗑 删除</button>
+        <el-button size="small" @click="doExport">📥 导出 MD</el-button>
+        <router-link :to="`/minutes/new?task_id=${record.task_id}`" v-if="record.task_id">
+          <el-button size="small">📝 重新生成</el-button>
+        </router-link>
+        <el-button size="small" type="danger" @click="doDelete">🗑 删除</el-button>
       </div>
     </div>
 
@@ -83,7 +85,6 @@ const renderedContent = computed(() => {
     html = html.replace(/<img src="https:\/\/cdn\.nlark\.com([^"]+)"/g, (m, p) => {
       return `<img src="/api/yuque-image-proxy?url=${encodeURIComponent('https://cdn.nlark.com' + p)}"`
     })
-    // 变更记录高亮：给包含 ⚠️ 的单元格加上高亮类
     html = html.replace(
       /<td>(⚠️[^<]*)<\/td>/g,
       '<td class="change-highlight">$1</td>'
@@ -95,7 +96,6 @@ const renderedContent = computed(() => {
 onMounted(async () => {
   try {
     record.value = await getMinutes(route.params.id)
-    // 加载关联会议的文档
     if (record.value?.meeting_id) {
       try {
         const meeting = await getMeeting(record.value.meeting_id)
@@ -145,17 +145,11 @@ async function doDelete() {
 <style scoped>
 .detail-page { padding: 0; }
 .detail-topbar { display: flex; align-items: center; gap: 12px; padding: 14px 24px; background: #fff; border-bottom: 1px solid #e2e8f0; position: sticky; top: 0; z-index: 10; }
-.btn-back { padding: 6px 14px; border: 1px solid #e2e8f0; background: #fff; border-radius: 6px; cursor: pointer; font-size: 0.82rem; color: #64748b; text-decoration: none; }
+.btn-back { padding: 6px 14px; border: 1px solid #e2e8f0; background: #fff; border-radius: 6px; cursor: pointer; font-size: 0.82rem; color: #64748b; text-decoration: none; display: inline-flex; align-items: center; }
 .btn-back:hover { border-color: #4f46e5; color: #4f46e5; }
 .topbar-info { flex: 1; display: flex; align-items: center; gap: 8px; }
 .topbar-info strong { font-size: 0.95rem; color: #1e293b; }
-.topbar-actions { display: flex; gap: 6px; }
-.btn-export { padding: 6px 14px; border: 1px solid #059669; background: #fff; color: #059669; border-radius: 6px; cursor: pointer; font-size: 0.8rem; text-decoration: none; }
-.btn-export:hover { background: #f0fdf4; }
-.btn-regen { padding: 6px 14px; border: 1px solid #d97706; background: #fff; color: #d97706; border-radius: 6px; cursor: pointer; font-size: 0.8rem; text-decoration: none; }
-.btn-regen:hover { background: #fffbeb; }
-.btn-del { padding: 6px 14px; border: 1px solid #fecaca; background: #fff; color: #dc2626; border-radius: 6px; cursor: pointer; font-size: 0.8rem; }
-.btn-del:hover { background: #fef2f2; }
+.topbar-actions { display: flex; gap: 6px; align-items: center; }
 
 .loading { text-align: center; padding: 60px 0; color: #94a3b8; }
 
@@ -164,7 +158,6 @@ async function doDelete() {
 .meta-label { font-size: 0.78rem; color: #94a3b8; }
 .meta-value { font-size: 0.85rem; color: #1e293b; }
 .link { color: #4f46e5; text-decoration: underline; }
-.type-tag { font-size: 0.75rem; background: #eef2ff; color: #4f46e5; padding: 2px 8px; border-radius: 4px; }
 .doc-tag { margin-right: 8px; }
 .doc-tag .link { font-size: 0.82rem; }
 

@@ -206,3 +206,46 @@ async def activate_source(request: Request, source_id: str):
         return {"activated": True, "id": source_id, "name": source.name}
     finally:
         db.close()
+
+
+@router.post("/{source_id}/test")
+async def test_source(request: Request, source_id: str):
+    """测试 LLM 来源连接"""
+    user = _get_user(request)
+    db = SessionLocal()
+    try:
+        source = (
+            db.query(LlmSource)
+            .filter(LlmSource.id == source_id, LlmSource.user_id == user["user_id"])
+            .first()
+        )
+        if not source:
+            raise HTTPException(status_code=404, detail="来源不存在")
+
+        body = await request.json()
+        test_message = body.get("message", "Hello")
+
+        from src.llm.openai_compat import OpenAICompatAdapter
+        adapter = OpenAICompatAdapter(
+            base_url=source.base_url,
+            api_key=source.api_key,
+            model=source.model,
+            timeout=15,
+        )
+
+        try:
+            result = ""
+            async for chunk in adapter.chat(
+                messages=[{"role": "user", "content": test_message}],
+                temperature=0.1,
+                max_tokens=10,
+                stream=True,
+            ):
+                if chunk:
+                    result += chunk
+            return {"success": True, "message": "连接成功", "response": result.strip()}
+        except Exception as e:
+            logger.warning("LLM 来源测试失败: %s - %s", source.name, e)
+            return {"success": False, "message": f"连接失败: {e}"}
+    finally:
+        db.close()

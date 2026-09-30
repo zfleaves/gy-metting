@@ -61,22 +61,36 @@ async def create_meeting(request: Request, body: MeetingCreate):
 
 
 @router.get("")
-async def list_meetings():
-    """列出所有会议"""
+async def list_meetings(
+    search: str = Query("", description="按标题搜索"),
+    meeting_type: Optional[str] = Query(None, description="按会议类型过滤"),
+    limit: int = Query(20, ge=1, le=200),
+    offset: int = Query(0, ge=0),
+):
+    """列出会议（分页 + 搜索）"""
     db = SessionLocal()
     try:
-        meetings = db.query(Meeting).order_by(Meeting.created_at.desc()).limit(20).all()
-        return [
-            {
-                "id": m.id,
-                "title": m.title,
-                "meeting_type": m.meeting_type,
-                "background": m.background,
-                "snapshot_ids": json.loads(m.snapshot_ids_json) if m.snapshot_ids_json else [],
-                "created_at": m.created_at.isoformat() if m.created_at else None,
-            }
-            for m in meetings
-        ]
+        q = db.query(Meeting)
+        if search:
+            q = q.filter(Meeting.title.contains(search))
+        if meeting_type:
+            q = q.filter(Meeting.meeting_type == meeting_type)
+        total = q.count()
+        meetings = q.order_by(Meeting.created_at.desc()).offset(offset).limit(limit).all()
+        return {
+            "total": total,
+            "records": [
+                {
+                    "id": m.id,
+                    "title": m.title,
+                    "meeting_type": m.meeting_type,
+                    "background": m.background,
+                    "snapshot_ids": json.loads(m.snapshot_ids_json) if m.snapshot_ids_json else [],
+                    "created_at": m.created_at.isoformat() if m.created_at else None,
+                }
+                for m in meetings
+            ],
+        }
     finally:
         db.close()
 

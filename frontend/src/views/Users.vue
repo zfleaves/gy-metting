@@ -5,53 +5,55 @@
     </div>
 
     <div class="toolbar">
-      <button class="btn-add" @click="showAdd = true">+ 新增用户</button>
+      <el-button type="primary" @click="showAdd = true">+ 新增用户</el-button>
     </div>
 
     <div v-if="loading" class="loading">加载中...</div>
 
     <div v-else class="user-list">
-      <div v-for="u in users" :key="u.id" class="user-card">
-        <div class="user-info">
-          <span class="user-name">{{ u.username }}</span>
-          <span class="user-role" :class="u.role">{{ roleLabel(u.role) }}</span>
+      <el-card v-for="u in users" :key="u.id" shadow="never" class="user-card">
+        <div class="user-card-inner">
+          <div class="user-info">
+            <span class="user-name">{{ u.username }}</span>
+            <el-tag :type="tagType(u.role)" size="small" effect="plain">
+              {{ roleLabel(u.role) }}
+            </el-tag>
+          </div>
+          <span class="user-time">{{ formatTime(u.created_at) }}</span>
+          <el-button
+            v-if="currentUser?.role === 'super_admin' && u.role !== 'super_admin'"
+            size="small"
+            type="danger"
+            plain
+            @click="doDelete(u)"
+          >删除</el-button>
         </div>
-        <span class="user-time">{{ formatTime(u.created_at) }}</span>
-        <button
-          v-if="currentUser?.role === 'super_admin' && u.role !== 'super_admin'"
-          class="btn-delete"
-          @click="doDelete(u)"
-        >删除</button>
-      </div>
+      </el-card>
     </div>
 
     <!-- 新增用户弹窗 -->
-    <div v-if="showAdd" class="modal-overlay" @click.self="showAdd = false">
-      <div class="modal">
-        <h3>新增用户</h3>
-        <div class="field">
-          <label>用户名</label>
-          <input v-model="newUsername" type="text" placeholder="至少 2 个字符" />
-        </div>
-        <div class="field">
-          <label>密码</label>
-          <input v-model="newPassword" type="password" placeholder="至少 4 个字符" />
-        </div>
-        <div class="field">
-          <label>角色</label>
-          <select v-model="newRole">
-            <option value="user">普通用户</option>
-            <option value="admin">管理员</option>
-            <option v-if="currentUser?.role === 'super_admin'" value="super_admin">超级管理员</option>
-          </select>
-        </div>
+    <el-dialog v-model="showAdd" title="新增用户" width="420">
+      <el-form>
+        <el-form-item label="用户名">
+          <el-input v-model="newUsername" placeholder="至少 2 个字符" />
+        </el-form-item>
+        <el-form-item label="密码">
+          <el-input v-model="newPassword" type="password" placeholder="至少 4 个字符" show-password />
+        </el-form-item>
+        <el-form-item label="角色">
+          <el-select v-model="newRole" style="width: 100%">
+            <el-option label="普通用户" value="user" />
+            <el-option label="管理员" value="admin" />
+            <el-option v-if="currentUser?.role === 'super_admin'" label="超级管理员" value="super_admin" />
+          </el-select>
+        </el-form-item>
         <div v-if="addError" class="error-msg">{{ addError }}</div>
-        <div class="modal-actions">
-          <button class="btn-cancel" @click="showAdd = false">取消</button>
-          <button class="btn-save" @click="doCreate" :disabled="addLoading">创建</button>
-        </div>
-      </div>
-    </div>
+      </el-form>
+      <template #footer>
+        <el-button @click="showAdd = false">取消</el-button>
+        <el-button type="primary" @click="doCreate" :loading="addLoading">创建</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -79,6 +81,12 @@ onMounted(async () => {
     loading.value = false
   }
 })
+
+function tagType(role) {
+  if (role === 'super_admin') return 'danger'
+  if (role === 'admin') return 'primary'
+  return 'info'
+}
 
 async function doCreate() {
   addError.value = ''
@@ -140,16 +148,6 @@ function formatTime(t) {
   margin-bottom: 16px;
 }
 
-.btn-add {
-  padding: 8px 16px;
-  background: #4f46e5;
-  color: #fff;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 0.9rem;
-}
-
 .loading {
   text-align: center;
   color: #94a3b8;
@@ -162,13 +160,10 @@ function formatTime(t) {
   gap: 8px;
 }
 
-.user-card {
+.user-card { margin: 0; }
+.user-card-inner {
   display: flex;
   align-items: center;
-  padding: 12px 16px;
-  background: #fff;
-  border: 1px solid #e2e8f0;
-  border-radius: 8px;
   gap: 12px;
 }
 
@@ -183,114 +178,15 @@ function formatTime(t) {
   color: #1e293b;
 }
 
-.user-role {
-  font-size: 0.75rem;
-  padding: 2px 8px;
-  border-radius: 4px;
-}
-
-.user-role.super_admin { background: #fef2f2; color: #dc2626; }
-.user-role.admin { background: #eef2ff; color: #4f46e5; }
-.user-role.user { background: #f1f5f9; color: #64748b; }
-
 .user-time {
   margin-left: auto;
   color: #94a3b8;
   font-size: 0.8rem;
 }
 
-.btn-delete {
-  padding: 4px 12px;
-  border: 1px solid #fecaca;
-  background: #fff;
-  color: #dc2626;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 0.8rem;
-}
-
-.btn-delete:hover {
-  background: #fef2f2;
-}
-
-/* 弹窗 */
-.modal-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0,0,0,0.4);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 100;
-}
-
-.modal {
-  background: #fff;
-  border-radius: 12px;
-  padding: 24px;
-  width: 360px;
-}
-
-.modal h3 {
-  margin: 0 0 16px;
-  color: #1e293b;
-}
-
-.field {
-  margin-bottom: 12px;
-}
-
-.field label {
-  display: block;
-  font-size: 0.85rem;
-  color: #64748b;
-  margin-bottom: 4px;
-}
-
-.field input, .field select {
-  width: 100%;
-  padding: 8px 12px;
-  border: 1px solid #e2e8f0;
-  border-radius: 6px;
-  font-size: 0.9rem;
-  outline: none;
-}
-
-.field input:focus, .field select:focus {
-  border-color: #4f46e5;
-}
-
 .error-msg {
   color: #dc2626;
   font-size: 0.8rem;
   margin-bottom: 8px;
-}
-
-.modal-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 8px;
-  margin-top: 16px;
-}
-
-.btn-cancel {
-  padding: 8px 16px;
-  border: 1px solid #e2e8f0;
-  background: #fff;
-  border-radius: 6px;
-  cursor: pointer;
-}
-
-.btn-save {
-  padding: 8px 16px;
-  background: #4f46e5;
-  color: #fff;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-}
-
-.btn-save:disabled {
-  opacity: 0.6;
 }
 </style>

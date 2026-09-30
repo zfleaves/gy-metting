@@ -251,10 +251,13 @@ export function addFluff(text) {
 }
 
 // 查询任务列表
-export function listTasks({ status, task_type, limit = 20, offset = 0 } = {}) {
+export function listTasks({ status, task_type, name, date_from, date_to, limit = 20, offset = 0 } = {}) {
   const query = new URLSearchParams()
   if (status) query.set('status', status)
   if (task_type) query.set('task_type', task_type)
+  if (name) query.set('name', name)
+  if (date_from) query.set('date_from', date_from)
+  if (date_to) query.set('date_to', date_to)
   query.set('limit', limit)
   query.set('offset', offset)
   return request(`/api/tasks?${query}`)
@@ -295,8 +298,13 @@ export function pullYuque(url, sourceId) {
 }
 
 // 文档列表
-export function listDocuments() {
-  return request('/api/documents')
+export function listDocuments(params = {}) {
+  const q = new URLSearchParams()
+  if (params.search) q.set('search', params.search)
+  if (params.source_type) q.set('source_type', params.source_type)
+  if (params.limit) q.set('limit', params.limit)
+  if (params.offset) q.set('offset', params.offset)
+  return request(`/api/documents?${q}`)
 }
 
 // 文档详情
@@ -330,8 +338,13 @@ export function updateMeeting(id, data) {
 }
 
 // 会议列表
-export function listMeetings() {
-  return request('/api/meetings')
+export function listMeetings(params = {}) {
+  const q = new URLSearchParams()
+  if (params.search) q.set('search', params.search)
+  if (params.meeting_type) q.set('meeting_type', params.meeting_type)
+  if (params.limit) q.set('limit', params.limit)
+  if (params.offset) q.set('offset', params.offset)
+  return request(`/api/meetings?${q}`)
 }
 
 // 会议详情
@@ -379,8 +392,12 @@ export function pullYuqueRequirement(sourceId, requirementId) {
 }
 
 // 拉取记录
-export function listYuqueRecords() {
-  return request('/api/yuque-records')
+export function listYuqueRecords(params = {}) {
+  const q = new URLSearchParams()
+  if (params.search) q.set('search', params.search)
+  if (params.limit) q.set('limit', params.limit)
+  if (params.offset) q.set('offset', params.offset)
+  return request(`/api/yuque-records?${q}`)
 }
 
 export function getYuqueRecord(id) {
@@ -425,6 +442,45 @@ export function activateLlmSource(id) {
   return request(`/api/llm-sources/${id}/activate`, { method: 'POST' })
 }
 
+export function getStats() {
+  return request('/api/stats')
+}
+
+// ============================================================
+// RAG 模型管理 (Embedding / Reranker)
+// ============================================================
+
+export function listRagModels(modelType) {
+  const q = modelType ? `?model_type=${modelType}` : ''
+  return request(`/api/models${q}`)
+}
+
+export function createRagModel(data) {
+  return request('/api/models', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  })
+}
+
+export function updateRagModel(id, data) {
+  return request(`/api/models/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  })
+}
+
+export function deleteRagModel(id) {
+  return request(`/api/models/${id}`, { method: 'DELETE' })
+}
+
+export function activateRagModel(id) {
+  return request(`/api/models/${id}/activate`, { method: 'POST' })
+}
+
+export function testRagModel(id) {
+  return request(`/api/models/${id}/test`, { method: 'POST' })
+}
+
 // ============================================================
 // AI 纪要
 // ============================================================
@@ -432,6 +488,9 @@ export function activateLlmSource(id) {
 export function listMinutes(params = {}) {
   const q = new URLSearchParams()
   if (params.search) q.set('search', params.search)
+  if (params.meeting_type) q.set('meeting_type', params.meeting_type)
+  if (params.date_from) q.set('date_from', params.date_from)
+  if (params.date_to) q.set('date_to', params.date_to)
   if (params.limit) q.set('limit', params.limit)
   if (params.offset) q.set('offset', params.offset)
   return request(`/api/minutes?${q}`)

@@ -112,7 +112,27 @@ class Settings(BaseSettings):
     MAX_CONCURRENT_TASKS: int = 1
 
     # ============================================================
-    # 10. 安全配置
+    # 10. Embedding / Reranker / RAG 配置
+    # ============================================================
+    EMBEDDING_PROVIDER: str = "dashscope"
+    EMBEDDING_MODEL: str = "text-embedding-v4"
+    EMBEDDING_API_KEY: str = ""
+    EMBEDDING_BASE_URL: str = "https://dashscope.aliyuncs.com/api/v1"
+
+    RERANK_PROVIDER: str = "dashscope"
+    RERANK_MODEL: str = "qwen3-rerank"
+    RERANK_API_KEY: str = ""
+    RERANK_BASE_URL: str = "https://dashscope.aliyuncs.com/api/v1"
+
+    RAG_CHUNK_SIZE: int = 512
+    RAG_CHUNK_OVERLAP: int = 64
+    RAG_TOP_K: int = 10
+    RAG_RERANK_TOP_N: int = 5
+    RAG_ENABLED: bool = False
+    WORKFLOW_VERIFY: bool = False
+
+    # ============================================================
+    # 11. 安全配置
     # ============================================================
     SECRET_KEY: str = "change-me-to-a-random-secret-key"
     CORS_ORIGINS: str = "http://localhost:5173"

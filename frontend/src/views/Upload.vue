@@ -8,13 +8,10 @@
     <!-- 关联会议选择 -->
     <div class="meeting-selector">
       <label>关联会议/需求</label>
-      <select v-model="selectedMeetingId" class="meeting-select">
-        <option value="">-- 不关联 --</option>
-        <option v-for="m in meetings" :key="m.id" :value="m.id">
-          {{ m.title }}（{{ m.snapshot_ids?.length || 0 }} 个文档）
-        </option>
-      </select>
-      <button class="btn-add-meeting" @click="showNewMeeting = true">+ 新增会议</button>
+      <el-select v-model="selectedMeetingId" placeholder="-- 不关联 --" style="flex: 1" clearable>
+        <el-option v-for="m in meetings" :key="m.id" :value="m.id" :label="`${m.title}（${m.snapshot_ids?.length || 0} 个文档）`" />
+      </el-select>
+      <el-button @click="showNewMeeting = true">+ 新增会议</el-button>
     </div>
 
     <!-- 新增会议弹窗 -->
@@ -39,7 +36,7 @@
       <div v-if="uploadedFiles.length === 0 && !uploading" class="upload-prompt">
         <div class="upload-icon">🎙️</div>
         <p>拖拽音频文件到此处，或点击选择（支持多文件）</p>
-        <button class="btn-select" @click="$refs.fileInput.click()">选择文件</button>
+        <el-button type="primary" size="large" @click="$refs.fileInput.click()">选择文件</el-button>
       </div>
 
       <!-- 上传中 -->
@@ -74,9 +71,9 @@
             <span class="file-size">{{ (f.size_bytes / 1024 / 1024).toFixed(1) }} MB</span>
             <span class="file-format">{{ f.format }}</span>
             <div class="file-actions">
-              <button class="btn-order" @click="moveUp(idx)" :disabled="idx === 0" title="上移">↑</button>
-              <button class="btn-order" @click="moveDown(idx)" :disabled="idx === uploadedFiles.length - 1" title="下移">↓</button>
-              <button class="btn-remove" @click="removeFile(idx)" title="移除">✕</button>
+              <el-button size="small" :disabled="idx === 0" @click="moveUp(idx)" title="上移">↑</el-button>
+              <el-button size="small" :disabled="idx === uploadedFiles.length - 1" @click="moveDown(idx)" title="下移">↓</el-button>
+              <el-button size="small" @click="removeFile(idx)" title="移除">✕</el-button>
             </div>
           </div>
         </div>
@@ -85,10 +82,14 @@
         <div v-if="batchAllDone" class="batch-all-done">
           <p>✅ 全部转写完成</p>
           <div v-for="bt in batchTasks" :key="bt.task_id" class="batch-task-link">
-            <router-link :to="`/task/${bt.task_id}`" class="btn-primary btn-sm">查看「{{ bt.name }}」转写结果 →</router-link>
-            <router-link :to="`/minutes/new?task_id=${bt.task_id}`" class="btn-minutes btn-sm">📝 生成纪要</router-link>
+            <router-link :to="`/task/${bt.task_id}`">
+              <el-button size="small" type="primary">查看「{{ bt.name }}」转写结果 →</el-button>
+            </router-link>
+            <router-link :to="`/minutes/new?task_id=${bt.task_id}`">
+              <el-button size="small" type="success">📝 生成纪要</el-button>
+            </router-link>
           </div>
-          <button class="btn-secondary" @click="resetUpload">重新上传</button>
+          <el-button size="small" @click="resetUpload">重新上传</el-button>
         </div>
 
         <div v-else-if="batchTranscribing" class="batch-progress">
@@ -112,11 +113,10 @@
         </div>
 
         <div v-else class="file-list-actions">
-          <button class="btn-secondary" @click="$refs.fileInput.click()">+ 继续添加</button>
-          <button class="btn-primary" @click="startBatchTranscribe" :disabled="batchTranscribing">
-            <span v-if="batchTranscribing" class="spinner-sm"></span>
-            {{ batchTranscribing ? '提交中...' : '🚀 开始批量转写' }}
-          </button>
+          <el-button size="small" @click="$refs.fileInput.click()">+ 继续添加</el-button>
+          <el-button type="primary" size="small" @click="startBatchTranscribe" :disabled="batchTranscribing" :loading="batchTranscribing">
+            🚀 开始批量转写
+          </el-button>
         </div>
       </div>
 
@@ -138,9 +138,9 @@
           <span v-for="i in 40" :key="i" class="wave-bar" :style="{ height: waveLevels[i-1] + 'px' }"></span>
         </div>
         <div class="record-actions">
-          <button v-if="recordState === 'recording'" class="btn-record-pause" @click="pauseRecording">⏸ 暂停</button>
-          <button v-if="recordState === 'paused'" class="btn-record-resume" @click="resumeRecording">▶ 继续</button>
-          <button class="btn-record-stop" @click="stopRecording">⏹ 停止</button>
+          <el-button v-if="recordState === 'recording'" @click="pauseRecording">⏸ 暂停</el-button>
+          <el-button v-if="recordState === 'paused'" @click="resumeRecording">▶ 继续</el-button>
+          <el-button type="danger" @click="stopRecording">⏹ 停止</el-button>
         </div>
       </div>
 
@@ -148,14 +148,13 @@
       <div v-if="recordState === 'idle'" class="record-prompt" style="margin-bottom:16px;">
         <div class="device-selector">
           <label>选择麦克风：</label>
-          <select v-model="selectedDeviceId" class="device-select">
-            <option value="">-- 默认设备 --</option>
-            <option v-for="d in audioDevices" :key="d.deviceId" :value="d.deviceId">{{ d.label || "麦克风" }}</option>
-          </select>
-          <button class="btn-refresh-devices" @click="loadAudioDevices">刷新</button>
+          <el-select v-model="selectedDeviceId" placeholder="-- 默认设备 --" style="flex: 1">
+            <el-option v-for="d in audioDevices" :key="d.deviceId" :value="d.deviceId" :label="d.label || '麦克风'" />
+          </el-select>
+          <el-button size="small" @click="loadAudioDevices">刷新</el-button>
         </div>
         <div v-if="recordError" class="error-msg" style="margin-bottom:12px;">{{ recordError }}</div>
-        <button class="btn-record-start" @click="startRecording">🎤 开始录音</button>
+        <el-button type="danger" size="large" @click="startRecording">🎤 开始录音</el-button>
         <p style="margin-top:8px;color:#94a3b8;font-size:0.8rem;">最长 60 分钟，可连续录制多段</p>
       </div>
 
@@ -163,31 +162,30 @@
       <div v-if="recordings.length > 0" class="recordings-list">
         <div class="file-list-header">
           <span class="file-count">已录制 {{ recordings.length }} 段</span>
-          <button v-if="recordingsUploadedCount > 0" class="btn-primary btn-sm" @click="batchTranscribeRecordings">
+          <el-button v-if="recordingsUploadedCount > 0" type="primary" size="small" @click="batchTranscribeRecordings">
             📝 批量转写（{{ recordingsUploadedCount }} 段）
-          </button>
+          </el-button>
         </div>
         <div class="file-list">
           <div v-for="(r, idx) in recordings" :key="r.id" class="file-row">
             <span class="file-order">{{ idx + 1 }}</span>
             <span class="record-name-col">
-              <input v-model="r.name" class="record-name-input" placeholder="输入录音名称" :disabled="r.state === 'transcribing' || r.state === 'transcribe-done'" />
+              <el-input v-model="r.name" placeholder="输入录音名称" size="small" :disabled="r.state === 'transcribing' || r.state === 'transcribe-done'" />
             </span>
             <span class="file-size">{{ formatDuration(r.duration) }}</span>
             <span class="file-format">{{ stateLabel(r.state) }}</span>
             <div class="file-actions">
               <!-- 待上传 -->
               <template v-if="r.state === 'done'">
-                <button class="btn-primary btn-sm" @click="uploadRecordingFile(r)" :disabled="r.uploading">
-                  <span v-if="r.uploading" class="spinner-sm"></span>
+                <el-button size="small" type="primary" @click="uploadRecordingFile(r)" :disabled="r.uploading" :loading="r.uploading">
                   {{ r.uploading ? '上传中...' : '📤 上传' }}
-                </button>
-                <button class="btn-remove" @click="removeRecording(idx)" title="删除">✕</button>
+                </el-button>
+                <el-button size="small" @click="removeRecording(idx)" title="删除">✕</el-button>
               </template>
               <!-- 已上传，待转写 -->
               <template v-if="r.state === 'uploaded'">
-                <button class="btn-primary btn-sm" @click="startTranscribe(r)">📝 转写</button>
-                <button class="btn-remove" @click="removeRecording(idx)" title="删除">✕</button>
+                <el-button size="small" type="primary" @click="startTranscribe(r)">📝 转写</el-button>
+                <el-button size="small" @click="removeRecording(idx)" title="删除">✕</el-button>
               </template>
               <!-- 上传中 -->
               <template v-if="r.state === 'uploading'">
@@ -202,15 +200,15 @@
               </template>
               <!-- 转写完成 -->
               <template v-if="r.state === 'transcribe-done'">
-                <router-link :to="`/task/${r.taskId}`" class="btn-primary btn-sm">查看结果 →</router-link>
-                <router-link :to="`/minutes/new?task_id=${r.taskId}`" class="btn-minutes btn-sm">📝 纪要</router-link>
-                <button class="btn-remove" @click="removeRecording(idx)" title="删除">✕</button>
+                <router-link :to="`/task/${r.taskId}`"><el-button size="small" type="primary">查看结果 →</el-button></router-link>
+                <router-link :to="`/minutes/new?task_id=${r.taskId}`"><el-button size="small" type="success">📝 纪要</el-button></router-link>
+                <el-button size="small" @click="removeRecording(idx)" title="删除">✕</el-button>
               </template>
               <!-- 错误 -->
               <template v-if="r.state === 'error'">
                 <span class="failed-text" style="font-size:0.78rem;">❌ {{ r.error }}</span>
-                <button class="btn-secondary btn-sm" @click="retryRecording(idx)">重试</button>
-                <button class="btn-remove" @click="removeRecording(idx)" title="删除">✕</button>
+                <el-button size="small" @click="retryRecording(idx)">重试</el-button>
+                <el-button size="small" @click="removeRecording(idx)" title="删除">✕</el-button>
               </template>
             </div>
           </div>
@@ -254,7 +252,7 @@ const batchError = ref('')
 let batchTimer = null
 
 async function onMeetingCreated(m) {
-  meetings.value = await listMeetings()
+  meetings.value = (await listMeetings()).records || []
   selectedMeetingId.value = m.id
   showNewMeeting.value = false
 }
@@ -270,7 +268,7 @@ function onDrop(e) {
 }
 
 onMounted(async () => {
-  try { meetings.value = await listMeetings() } catch (e) { /* ignore */ }
+  try { meetings.value = (await listMeetings()).records || [] } catch (e) { /* ignore */ }
   setTimeout(() => loadAudioDevices(), 500)
 })
 
@@ -834,10 +832,6 @@ onUnmounted(() => {
 /* 会议选择 */
 .meeting-selector { display: flex; align-items: center; gap: 8px; margin-bottom: 16px; }
 .meeting-selector label { font-size: 0.85rem; color: #64748b; font-weight: 500; white-space: nowrap; }
-.meeting-select { flex: 1; padding: 8px 12px; border: 1px solid #e2e8f0; border-radius: 6px; font-size: 0.85rem; outline: none; }
-.meeting-select:focus { border-color: #4f46e5; }
-.btn-add-meeting { padding: 8px 14px; border: 1px dashed #4f46e5; background: #fff; color: #4f46e5; border-radius: 6px; cursor: pointer; font-size: 0.82rem; white-space: nowrap; }
-.btn-add-meeting:hover { background: #eef2ff; }
 
 /* 上传区域 */
 .upload-zone { border: 2px dashed #e2e8f0; border-radius: 12px; padding: 40px; text-align: center; transition: all 0.2s; }
@@ -845,8 +839,6 @@ onUnmounted(() => {
 .upload-zone.uploaded { border-style: solid; border-color: #16a34a; padding: 24px; }
 .upload-prompt { color: #94a3b8; }
 .upload-icon { font-size: 2.5rem; margin-bottom: 8px; }
-.btn-select { margin-top: 12px; padding: 10px 24px; background: #4f46e5; color: #fff; border: none; border-radius: 8px; cursor: pointer; font-size: 0.9rem; }
-.btn-select:hover { background: #4338ca; }
 .upload-progress { padding: 20px; }
 .spinner { width: 32px; height: 32px; border: 3px solid #e2e8f0; border-top-color: #4f46e5; border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto 12px; }
 @keyframes spin { to { transform: rotate(360deg); } }
@@ -879,10 +871,6 @@ onUnmounted(() => {
 .record-icon { font-size: 2.5rem; margin-bottom: 8px; }
 .device-selector { display: flex; align-items: center; gap: 8px; margin-bottom: 16px; font-size: 0.85rem; }
 .device-selector label { color: #64748b; white-space: nowrap; }
-.device-select { flex: 1; padding: 6px 10px; border: 1px solid #e2e8f0; border-radius: 6px; font-size: 0.85rem; outline: none; }
-.device-select:focus { border-color: #4f46e5; }
-.btn-refresh-devices { padding: 4px 10px; border: 1px solid #e2e8f0; background: #fff; border-radius: 4px; cursor: pointer; font-size: 0.78rem; color: #64748b; }
-.btn-refresh-devices:hover { border-color: #4f46e5; color: #4f46e5; }
 .btn-record-start { padding: 12px 32px; background: #dc2626; color: #fff; border: none; border-radius: 8px; cursor: pointer; font-size: 1rem; margin-top: 12px; transition: background 0.2s; }
 .btn-record-start:hover { background: #b91c1c; }
 
@@ -898,10 +886,6 @@ onUnmounted(() => {
 .wave-bar { width: 4px; border-radius: 2px; background: #4f46e5; transition: height 0.1s; min-height: 2px; }
 
 .record-actions { display: flex; gap: 8px; justify-content: center; }
-.btn-record-pause, .btn-record-resume { padding: 10px 24px; border: 1px solid #e2e8f0; background: #fff; border-radius: 8px; cursor: pointer; font-size: 0.88rem; color: #64748b; }
-.btn-record-pause:hover, .btn-record-resume:hover { border-color: #4f46e5; color: #4f46e5; }
-.btn-record-stop { padding: 10px 24px; background: #dc2626; color: #fff; border: none; border-radius: 8px; cursor: pointer; font-size: 0.88rem; }
-.btn-record-stop:hover { background: #b91c1c; }
 
 .record-name-input { width: 100%; padding: 6px 10px; border: 1px solid #e2e8f0; border-radius: 4px; font-size: 0.85rem; outline: none; box-sizing: border-box; }
 .record-name-input:focus { border-color: #4f46e5; }
@@ -928,11 +912,6 @@ onUnmounted(() => {
 .file-name { flex: 1; font-size: 0.85rem; color: #1e293b; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .file-size { font-size: 0.78rem; color: #94a3b8; width: 60px; text-align: right; flex-shrink: 0; }
 .file-format { font-size: 0.75rem; color: #4f46e5; background: #eef2ff; padding: 2px 6px; border-radius: 4px; width: 36px; text-align: center; flex-shrink: 0; }
-.file-actions { display: flex; gap: 2px; flex-shrink: 0; }
-.btn-order, .btn-remove { width: 28px; height: 28px; border: 1px solid #e2e8f0; background: #fff; border-radius: 4px; cursor: pointer; font-size: 0.8rem; display: flex; align-items: center; justify-content: center; color: #64748b; }
-.btn-order:hover:not(:disabled) { border-color: #4f46e5; color: #4f46e5; }
-.btn-order:disabled { opacity: 0.3; cursor: not-allowed; }
-.btn-remove:hover { border-color: #dc2626; color: #dc2626; }
 
 .file-list-actions { display: flex; gap: 8px; justify-content: center; margin-top: 16px; }
 
@@ -949,7 +928,5 @@ onUnmounted(() => {
 
 .batch-all-done { margin-top: 16px; text-align: center; }
 .batch-all-done > p { font-size: 0.95rem; color: #16a34a; font-weight: 600; margin-bottom: 12px; }
-.batch-task-link { margin-bottom: 6px; }
-.batch-task-link .btn-sm { padding: 6px 14px; font-size: 0.82rem; }
-.batch-task-link .btn-minutes.btn-sm { margin-left: 6px; }
+.batch-task-link { margin-bottom: 6px; display: flex; gap: 6px; justify-content: center; }
 </style>

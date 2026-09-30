@@ -69,16 +69,25 @@ def _to_dict(m: Minutes) -> dict:
 async def list_minutes(
     request: Request,
     search: str = Query("", description="搜索标题"),
+    meeting_type: Optional[str] = Query(None, description="按会议类型过滤"),
+    date_from: Optional[str] = Query(None, description="起始日期 (YYYY-MM-DD)"),
+    date_to: Optional[str] = Query(None, description="结束日期 (YYYY-MM-DD)"),
     limit: int = Query(20, ge=1, le=100),
     offset: int = Query(0, ge=0),
 ):
-    """列出纪要记录（分页）"""
+    """列出纪要记录（分页 + 搜索 + 筛选）"""
     user = _get_user(request)
     db = SessionLocal()
     try:
         q = db.query(Minutes).filter(Minutes.user_id == user["user_id"])
         if search:
             q = q.filter(Minutes.title.contains(search))
+        if meeting_type:
+            q = q.filter(Minutes.meeting_type == meeting_type)
+        if date_from:
+            q = q.filter(Minutes.created_at >= date_from)
+        if date_to:
+            q = q.filter(Minutes.created_at <= f"{date_to} 23:59:59")
         total = q.count()
         records = q.order_by(Minutes.created_at.desc()).offset(offset).limit(limit).all()
         return {
@@ -100,6 +109,8 @@ async def generate_minutes(
     preference_ids: Optional[str] = Query(None, description="使用的偏好 ID，多个用逗号分隔"),
     regenerate_reason: Optional[str] = Query(None, description="重新生成原因"),
     regenerate_notes: Optional[str] = Query(None, description="重新生成注意事项"),
+    rag_enabled: bool = Query(False, description="启用 RAG 语义检索增强"),
+    verify_enabled: bool = Query(False, description="启用质量验证"),
 ):
     """SSE 流式生成 AI 纪要，完成后自动保存记录"""
     user = _get_user(request)
@@ -151,19 +162,41 @@ async def generate_minutes(
             prompt_used = messages[0]["content"] if messages else ""
 
             from src.llm.adapter import get_llm_adapter
-            adapter = get_llm_adapter()
+            from src.llm.workflow import run_minutes_workflow
 
             yield f"data: {json.dumps({'type': 'start', 'message': '开始生成纪要...'})}\n\n"
 
-            async for chunk in adapter.chat(
-                messages=messages,
-                temperature=temperature,
-                max_tokens=max_tokens,
-                stream=True,
-            ):
-                if chunk:
-                    full_text += chunk
-                    yield f"data: {json.dumps({'type': 'chunk', 'text': chunk})}\n\n"
+            if rag_enabled or verify_enabled:
+                # 使用多智能体工作流
+                async for event in run_minutes_workflow(
+                    task_id=task_id,
+                    messages=messages,
+                    temperature=temperature,
+                    max_tokens=max_tokens,
+                    rag_enabled=rag_enabled,
+                    verify_enabled=verify_enabled,
+                ):
+                    if event["type"] == "phase":
+                        yield f"data: {json.dumps({'type': 'phase', 'phase': event['phase'], 'message': event['message']})}\n\n"
+                    elif event["type"] == "chunk":
+                        full_text += event["text"]
+                        yield f"data: {json.dumps({'type': 'chunk', 'text': event['text']})}\n\n"
+                    elif event["type"] == "verify_result":
+                        yield f"data: {json.dumps({'type': 'verify', 'score': event['score'], 'issues': event.get('issues', []), 'suggestions': event.get('suggestions', [])})}\n\n"
+                    elif event["type"] == "error":
+                        raise Exception(event["message"])
+            else:
+                # 原始直接生成
+                adapter = get_llm_adapter()
+                async for chunk in adapter.chat(
+                    messages=messages,
+                    temperature=temperature,
+                    max_tokens=max_tokens,
+                    stream=True,
+                ):
+                    if chunk:
+                        full_text += chunk
+                        yield f"data: {json.dumps({'type': 'chunk', 'text': chunk})}\n\n"
 
             total_tokens = adapter.count_tokens(full_text)
 

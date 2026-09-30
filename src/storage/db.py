@@ -84,6 +84,7 @@ def init_db() -> None:
         "ALTER TABLE yuque_sources ADD COLUMN exclude TEXT",
         "ALTER TABLE yuque_sources ADD COLUMN attachment_types TEXT",
         "ALTER TABLE yuque_sources ADD COLUMN embed_types TEXT",
+        "CREATE TABLE IF NOT EXISTS rag_models (id VARCHAR(32) PRIMARY KEY, user_id VARCHAR(32) NOT NULL, name VARCHAR(100) NOT NULL, model_type VARCHAR(20) NOT NULL, provider VARCHAR(50) NOT NULL DEFAULT 'dashscope', base_url VARCHAR(500) NOT NULL DEFAULT 'https://dashscope.aliyuncs.com/api/v1', api_key VARCHAR(500) NOT NULL, model VARCHAR(100) NOT NULL, is_active VARCHAR(5) DEFAULT '0', created_at DATETIME NOT NULL, updated_at DATETIME NOT NULL, FOREIGN KEY(user_id) REFERENCES users(id))",
     ]
     with engine.connect() as conn:
         for sql in migrations:

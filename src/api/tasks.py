@@ -343,16 +343,35 @@ async def list_tasks(
     request: Request,
     status: Optional[str] = Query(None, description="按状态筛选: pending/processing/completed/failed"),
     task_type: Optional[str] = Query(None, description="按类型筛选: asr/minutes/yuque_pull"),
-    limit: int = Query(20, ge=1, le=100),
+    name: Optional[str] = Query(None, description="按任务名称搜索"),
+    date_from: Optional[str] = Query(None, description="起始日期 (YYYY-MM-DD)"),
+    date_to: Optional[str] = Query(None, description="结束日期 (YYYY-MM-DD)"),
+    limit: int = Query(20, ge=1, le=200),
     offset: int = Query(0, ge=0),
 ):
-    """列出任务（分页），按用户隔离"""
+    """列出任务（分页），按用户隔离。返回 {total, records}"""
     user = getattr(request.state, "user", None)
-    manager = get_task_manager()
 
     # 普通用户只看自己的任务
     if user and user["role"] not in ("super_admin", "admin"):
         from src.task.queue import list_tasks_by_user
-        return list_tasks_by_user(user["user_id"], status=status, task_type=task_type, limit=limit, offset=offset)
+        return list_tasks_by_user(
+            user["user_id"],
+            status=status,
+            task_type=task_type,
+            name=name,
+            date_from=date_from,
+            date_to=date_to,
+            limit=limit,
+            offset=offset,
+        )
 
-    return manager.list_tasks(status=status, task_type=task_type, limit=limit, offset=offset)
+    return get_task_manager().list_tasks(
+        status=status,
+        task_type=task_type,
+        name=name,
+        date_from=date_from,
+        date_to=date_to,
+        limit=limit,
+        offset=offset,
+    )

@@ -18,6 +18,8 @@ from src.api.yuque_image_proxy import router as yuque_image_proxy_router
 from src.api.llm_sources import router as llm_sources_router
 from src.api.minutes import router as minutes_router
 from src.api.preferences import router as preferences_router
+from src.api.stats import router as stats_router
+from src.api.models import router as models_router
 
 router = APIRouter()
 
@@ -34,3 +36,5 @@ router.include_router(yuque_image_proxy_router)
 router.include_router(llm_sources_router)
 router.include_router(minutes_router)
 router.include_router(preferences_router)
+router.include_router(stats_router)
+router.include_router(models_router)

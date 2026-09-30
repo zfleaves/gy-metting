@@ -3,24 +3,21 @@
     <div class="login-card">
       <h1>gy-meeting</h1>
       <p class="subtitle">AI 智能会议纪要中台</p>
-      <form @submit.prevent="isRegister ? doRegister() : doLogin()">
-        <div class="field">
-          <label>用户名</label>
-          <input v-model="username" type="text" placeholder="请输入用户名" autofocus />
-        </div>
-        <div class="field">
-          <label>密码</label>
-          <input v-model="password" type="password" placeholder="请输入密码" />
-        </div>
-        <div v-if="isRegister" class="field">
-          <label>确认密码</label>
-          <input v-model="confirmPassword" type="password" placeholder="请再次输入密码" />
-        </div>
+      <el-form @submit.prevent="isRegister ? doRegister() : doLogin()">
+        <el-form-item label="用户名">
+          <el-input v-model="username" type="text" placeholder="请输入用户名" autofocus />
+        </el-form-item>
+        <el-form-item label="密码">
+          <el-input v-model="password" type="password" placeholder="请输入密码" show-password />
+        </el-form-item>
+        <el-form-item v-if="isRegister" label="确认密码">
+          <el-input v-model="confirmPassword" type="password" placeholder="请再次输入密码" show-password />
+        </el-form-item>
         <div v-if="error" class="error-msg">{{ error }}</div>
-        <button type="submit" class="btn-login" :disabled="loading">
-          {{ loading ? (isRegister ? '注册中...' : '登录中...') : (isRegister ? '注册' : '登录') }}
-        </button>
-      </form>
+        <el-button type="primary" native-type="submit" :loading="loading" style="width: 100%">
+          {{ isRegister ? '注册' : '登录' }}
+        </el-button>
+      </el-form>
       <p class="toggle-mode">
         {{ isRegister ? '已有账号？' : '没有账号？' }}
         <a href="#" @click.prevent="toggleMode">{{ isRegister ? '去登录' : '去注册' }}</a>
@@ -121,31 +118,6 @@ async function doRegister() {
   margin-bottom: 24px;
 }
 
-.field {
-  margin-bottom: 16px;
-}
-
-.field label {
-  display: block;
-  font-size: 0.85rem;
-  color: #64748b;
-  margin-bottom: 4px;
-}
-
-.field input {
-  width: 100%;
-  padding: 10px 12px;
-  border: 1px solid #e2e8f0;
-  border-radius: 6px;
-  font-size: 0.95rem;
-  outline: none;
-  transition: border-color 0.2s;
-}
-
-.field input:focus {
-  border-color: #4f46e5;
-}
-
 .error-msg {
   color: #dc2626;
   background: #fef2f2;
@@ -153,27 +125,6 @@ async function doRegister() {
   border-radius: 6px;
   font-size: 0.85rem;
   margin-bottom: 12px;
-}
-
-.btn-login {
-  width: 100%;
-  padding: 12px;
-  background: #4f46e5;
-  color: #fff;
-  border: none;
-  border-radius: 8px;
-  font-size: 1rem;
-  cursor: pointer;
-  transition: background 0.2s;
-}
-
-.btn-login:hover {
-  background: #4338ca;
-}
-
-.btn-login:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
 }
 
 .toggle-mode {

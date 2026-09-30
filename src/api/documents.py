@@ -192,22 +192,36 @@ async def pull_yuque(request: Request, body: YuquePullRequest):
 # ============================================================
 
 @router.get("")
-async def list_documents():
-    """列出所有快照"""
+async def list_documents(
+    search: str = Query("", description="按标题搜索"),
+    source_type: Optional[str] = Query(None, description="按来源类型过滤: yuque/local"),
+    limit: int = Query(50, ge=1, le=200),
+    offset: int = Query(0, ge=0),
+):
+    """列出快照（分页 + 搜索）"""
     db = SessionLocal()
     try:
-        snaps = db.query(Snapshot).order_by(Snapshot.created_at.desc()).limit(50).all()
-        return [
-            {
-                "id": s.id,
-                "title": s.title,
-                "source_type": s.source_type,
-                "source_url": s.source_url,
-                "size_bytes": s.size_bytes,
-                "created_at": s.created_at.isoformat() if s.created_at else None,
-            }
-            for s in snaps
-        ]
+        q = db.query(Snapshot)
+        if search:
+            q = q.filter(Snapshot.title.contains(search))
+        if source_type:
+            q = q.filter(Snapshot.source_type == source_type)
+        total = q.count()
+        snaps = q.order_by(Snapshot.created_at.desc()).offset(offset).limit(limit).all()
+        return {
+            "total": total,
+            "records": [
+                {
+                    "id": s.id,
+                    "title": s.title,
+                    "source_type": s.source_type,
+                    "source_url": s.source_url,
+                    "size_bytes": s.size_bytes,
+                    "created_at": s.created_at.isoformat() if s.created_at else None,
+                }
+                for s in snaps
+            ],
+        }
     finally:
         db.close()
 

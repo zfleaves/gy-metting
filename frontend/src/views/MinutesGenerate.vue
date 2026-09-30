@@ -9,16 +9,9 @@
     <div class="form-section">
       <div class="field">
         <label>选择转写任务 <span class="required">*</span></label>
-        <select v-model="taskId" class="form-select">
-          <option value="">-- 请选择已完成转写的任务 --</option>
-          <option v-for="t in tasks" :key="t.id" :value="t.id">
-            {{ t.name || t.id.slice(0, 8) }}
-            <template v-if="t.meeting_id && meetingMap[t.meeting_id]">
-              — {{ meetingMap[t.meeting_id] }}
-            </template>
-            （{{ formatTime(t.created_at) }}）
-          </option>
-        </select>
+        <el-select v-model="taskId" placeholder="-- 请选择已完成转写的任务 --" style="width: 100%">
+          <el-option v-for="t in tasks" :key="t.id" :value="t.id" :label="t.name || t.id.slice(0, 8)" />
+        </el-select>
         <div v-if="taskId && selectedMeeting" class="selected-meeting">
           📋 关联会议：
           <a :href="`/meeting/${selectedMeeting.id}`" target="_blank" class="meeting-link">{{ selectedMeeting.title }}</a>
@@ -37,18 +30,18 @@
       <div class="field">
         <label>会议模板</label>
         <div class="template-tabs">
-          <button
+          <el-button
             v-for="t in templates"
             :key="t"
-            class="template-tab"
-            :class="{ active: meetingType === t }"
+            size="small"
+            :type="meetingType === t ? 'primary' : 'default'"
             :title="templateDesc[t]"
             @click="meetingType = t"
-          >{{ t }}</button>
+          >{{ t }}</el-button>
         </div>
         <div class="template-hint">
           {{ templateDesc[meetingType] }}
-          <button class="btn-view-prompt" @click="showPrompt = true">查看提示词</button>
+          <el-button size="small" text @click="showPrompt = true">查看提示词</el-button>
         </div>
       </div>
 
@@ -70,7 +63,7 @@
 
       <div class="field">
         <label>自定义提示词（可选，覆盖模板）</label>
-        <textarea v-model="customPrompt" class="form-textarea" placeholder="留空则使用模板默认提示词..." rows="3"></textarea>
+        <el-input v-model="customPrompt" type="textarea" :rows="3" placeholder="留空则使用模板默认提示词..." />
       </div>
 
       <div class="field-row">
@@ -79,47 +72,98 @@
             Temperature
             <span class="tip-icon" data-tip="控制输出随机性：0=严格确定，2=高度随机。纪要生成推荐 0.1-0.5">?</span>
           </label>
-          <input v-model.number="temperature" type="number" step="0.1" min="0" max="2" class="form-input" />
+          <el-input v-model.number="temperature" type="number" step="0.1" min="0" max="2" />
         </div>
         <div class="field">
           <label>
             Max Tokens
             <span class="tip-icon" data-tip="单次生成最大 Token 数，超出后内容截断。纪要建议 4096-8192">?</span>
           </label>
-          <input v-model.number="maxTokens" type="number" step="1024" min="256" class="form-input" />
+          <el-input v-model.number="maxTokens" type="number" step="1024" min="256" />
         </div>
       </div>
 
+      <!-- 高级设置：RAG + 验证 -->
+      <el-collapse class="advanced-section">
+        <el-collapse-item title="⚙️ 高级设置" name="advanced">
+          <div class="advanced-row">
+            <div class="advanced-item">
+              <el-switch v-model="ragEnabled" active-text="启用 RAG 语义检索" />
+              <div class="advanced-desc">对参考文档做语义检索 + 重排序，只保留最相关内容</div>
+            </div>
+            <div class="advanced-item">
+              <el-switch v-model="verifyEnabled" active-text="启用质量验证" />
+              <div class="advanced-desc">生成后二次调用 LLM 验证幻觉、遗漏和格式</div>
+            </div>
+          </div>
+          <div class="model-chain-hint">
+            模型链：<el-tag size="small" type="info">Embedding</el-tag> → <el-tag size="small" type="warning">Reranker</el-tag> → <el-tag size="small" type="success">LLM 生成</el-tag>
+            <el-button size="small" text @click="goModelMgmt">管理模型 →</el-button>
+          </div>
+        </el-collapse-item>
+      </el-collapse>
+
       <div class="form-actions">
-        <button class="btn-generate" @click="startGenerate" :disabled="!taskId || generating">
+        <el-button type="primary" size="large" @click="startGenerate" :disabled="!taskId || generating">
           {{ generating ? '生成中...' : '🚀 生成纪要' }}
-        </button>
-        <button v-if="generating" class="btn-stop" @click="stopGenerate">停止</button>
+        </el-button>
+        <el-button v-if="generating" type="danger" @click="stopGenerate">停止</el-button>
       </div>
     </div>
 
     <!-- 结果区 -->
-    <div v-if="resultText || generating" class="result-section">
+    <div v-if="resultText || generating || verifyResult" class="result-section">
       <div class="result-header">
         <h3>生成结果</h3>
         <div class="result-actions">
-          <button v-if="resultText && !generating && !editing" class="btn-edit" @click="startEdit">✏️ 编辑</button>
-          <button v-if="done && !editing" class="btn-regen" @click="showRegenDialog = true">🔄 重新生成</button>
-          <button v-if="editing" class="btn-save" @click="doSave" :disabled="saving">{{ saving ? '保存中...' : '💾 保存修改' }}</button>
-          <button v-if="editing" class="btn-cancel-edit" @click="cancelEdit">取消</button>
-          <button v-if="resultText" class="btn-copy" @click="copyResult">📋 复制</button>
+          <el-button v-if="resultText && !generating && !editing" size="small" @click="startEdit">✏️ 编辑</el-button>
+          <el-button v-if="done && !editing" size="small" type="warning" @click="showRegenDialog = true">🔄 重新生成</el-button>
+          <el-button v-if="editing" size="small" type="success" @click="doSave" :loading="saving">{{ saving ? '保存中...' : '💾 保存修改' }}</el-button>
+          <el-button v-if="editing" size="small" @click="cancelEdit">取消</el-button>
+          <el-button v-if="resultText" size="small" @click="copyResult">📋 复制</el-button>
           <span v-if="usage" class="usage-info">Token: {{ usage }}</span>
-          <router-link v-if="done" to="/minutes" class="btn-view-list">📋 查看列表</router-link>
-          <button v-if="done && !editing" class="btn-generate-sm" @click="resetForm">🔄 继续生成</button>
+          <router-link v-if="done" to="/minutes">
+            <el-button size="small" type="primary">📋 查看列表</el-button>
+          </router-link>
+          <el-button v-if="done && !editing" size="small" @click="resetForm">🔄 继续生成</el-button>
         </div>
       </div>
+
+      <!-- 阶段指示器 -->
+      <div v-if="phaseMessage && generating" class="phase-indicator">
+        <div class="spinner-small"></div>
+        <span>{{ phaseMessage }}</span>
+      </div>
+
+      <!-- 质量验证结果 -->
+      <div v-if="verifyResult" class="verify-card">
+        <div class="verify-header">
+          <span class="verify-icon">🔍</span>
+          <span class="verify-title">质量验证结果</span>
+          <span class="verify-score" :class="scoreClass(verifyResult.score)">
+            {{ verifyResult.score }}/100
+          </span>
+        </div>
+        <div v-if="verifyResult.issues?.length" class="verify-issues">
+          <div class="verify-subtitle">⚠️ 问题列表</div>
+          <div v-for="(issue, i) in verifyResult.issues" :key="i" class="verify-issue-item">
+            <span class="issue-severity" :class="severityClass(issue.severity)">{{ issue.severity || '一般' }}</span>
+            {{ issue.text || issue }}
+          </div>
+        </div>
+        <div v-if="verifyResult.suggestions?.length" class="verify-suggestions">
+          <div class="verify-subtitle">💡 改进建议</div>
+          <div v-for="(s, i) in verifyResult.suggestions" :key="i" class="verify-suggestion-item">• {{ s.text || s }}</div>
+        </div>
+      </div>
+
       <div class="result-body" ref="resultBody">
         <div v-if="!resultText && generating" class="generating-status">
           <div class="spinner"></div>
           <span>正在生成纪要，请稍候...</span>
         </div>
         <div v-if="editing" class="edit-area">
-          <textarea v-model="editText" class="edit-textarea" @input="onEditInput"></textarea>
+          <el-input v-model="editText" type="textarea" :rows="20" @input="onEditInput" />
           <div class="edit-hint">支持 Markdown 格式，修改后点击「保存修改」</div>
         </div>
         <div v-else class="markdown-content" v-html="renderedResult"></div>
@@ -129,63 +173,49 @@
     </div>
 
     <!-- 重新生成弹窗 -->
-    <div v-if="showRegenDialog" class="modal-overlay" @click.self="showRegenDialog = false">
-      <div class="regen-modal">
-        <div class="modal-header">
-          <h3>🔄 重新生成纪要</h3>
-          <button class="modal-close" @click="showRegenDialog = false">✕</button>
-        </div>
-        <div class="modal-body">
-          <div class="field">
-            <label>修改原因 <span class="required">*</span></label>
-            <select v-model="regenReason" class="form-select">
-              <option value="">-- 请选择 --</option>
-              <option value="内容不准确">内容不准确</option>
-              <option value="遗漏关键信息">遗漏关键信息</option>
-              <option value="格式不符合要求">格式不符合要求</option>
-              <option value="决策描述不清晰">决策描述不清晰</option>
-              <option value="其他">其他</option>
-            </select>
-          </div>
-          <div class="field">
-            <label>注意事项</label>
-            <textarea v-model="regenNotes" class="form-textarea" rows="4" placeholder="输入你的具体要求，如：请重点关注待办事项的截止时间、把决策描述得更详细等"></textarea>
-          </div>
-          <div class="field">
-            <label>使用偏好（可多选）</label>
-            <div class="pref-checkbox-list">
-              <label v-for="p in adoptedPrefs" :key="p.id" class="pref-checkbox-item">
-                <input type="checkbox" :value="p.id" v-model="regenPrefIds" />
-                <span class="pref-checkbox-label">{{ p.name || p.meeting_type }}</span>
-                <span v-if="p.is_default" class="default-badge-sm">⭐</span>
-              </label>
-              <div v-if="!adoptedPrefs.length" class="pref-empty">暂无已采纳偏好</div>
-            </div>
-          </div>
-        </div>
-        <div class="modal-footer">
-          <button class="btn-cancel" @click="showRegenDialog = false">取消</button>
-          <button class="btn-generate" @click="doRegenerate" :disabled="!regenReason || regenerating">
-            {{ regenerating ? '重新生成中...' : '🚀 重新生成' }}
-          </button>
+    <el-dialog v-model="showRegenDialog" title="🔄 重新生成纪要" width="520px" :close-on-click-modal="false">
+      <div class="field">
+        <label>修改原因 <span class="required">*</span></label>
+        <el-select v-model="regenReason" placeholder="-- 请选择 --" style="width: 100%">
+          <el-option value="内容不准确" label="内容不准确" />
+          <el-option value="遗漏关键信息" label="遗漏关键信息" />
+          <el-option value="格式不符合要求" label="格式不符合要求" />
+          <el-option value="决策描述不清晰" label="决策描述不清晰" />
+          <el-option value="其他" label="其他" />
+        </el-select>
+      </div>
+      <div class="field">
+        <label>注意事项</label>
+        <el-input v-model="regenNotes" type="textarea" :rows="4" placeholder="输入你的具体要求，如：请重点关注待办事项的截止时间、把决策描述得更详细等" />
+      </div>
+      <div class="field">
+        <label>使用偏好（可多选）</label>
+        <div class="pref-checkbox-list">
+          <label v-for="p in adoptedPrefs" :key="p.id" class="pref-checkbox-item">
+            <input type="checkbox" :value="p.id" v-model="regenPrefIds" />
+            <span class="pref-checkbox-label">{{ p.name || p.meeting_type }}</span>
+            <span v-if="p.is_default" class="default-badge-sm">⭐</span>
+          </label>
+          <div v-if="!adoptedPrefs.length" class="pref-empty">暂无已采纳偏好</div>
         </div>
       </div>
-    </div>
+      <template #footer>
+        <el-button @click="showRegenDialog = false">取消</el-button>
+        <el-button type="primary" @click="doRegenerate" :disabled="!regenReason || regenerating" :loading="regenerating">
+          🚀 重新生成
+        </el-button>
+      </template>
+    </el-dialog>
 
     <!-- 提示词预览弹窗 -->
-    <div v-if="showPrompt" class="modal-overlay" @click.self="showPrompt = false">
-      <div class="prompt-modal">
-        <div class="prompt-header">
-          <h3>提示词模板：{{ meetingType }}</h3>
-          <div class="prompt-header-actions">
-            <button class="btn-copy-prompt" @click="copyPrompt">📋 复制</button>
-            <button class="prompt-close" @click="showPrompt = false">✕</button>
-          </div>
-        </div>
-        <div class="prompt-hint">以下是 AI 使用的系统提示词。你可以参考此格式，在「自定义提示词」中覆盖修改。</div>
-        <pre class="prompt-body">{{ templatePrompts[meetingType] }}</pre>
-      </div>
-    </div>
+    <el-dialog v-model="showPrompt" :title="`提示词模板：${meetingType}`" width="720px">
+      <div class="prompt-hint">以下是 AI 使用的系统提示词。你可以参考此格式，在「自定义提示词」中覆盖修改。</div>
+      <pre class="prompt-body">{{ templatePrompts[meetingType] }}</pre>
+      <template #footer>
+        <el-button @click="copyPrompt">📋 复制</el-button>
+        <el-button type="primary" @click="showPrompt = false">关闭</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -417,6 +447,11 @@ const saving = ref(false)
 // 偏好相关
 const adoptedPrefs = ref([])
 const selectedPrefIds = ref([])
+// RAG + 验证（从 localStorage 加载工作流配置）
+const ragEnabled = ref(localStorage.getItem('workflow_rag_enabled') === 'true')
+const verifyEnabled = ref(localStorage.getItem('workflow_verify_enabled') === 'true')
+const phaseMessage = ref('')
+const verifyResult = ref(null) // { score, issues, suggestions }
 // 重新生成弹窗
 const showRegenDialog = ref(false)
 const regenReason = ref('')
@@ -455,7 +490,8 @@ const renderedResult = computed(() => {
 
 onMounted(async () => {
   try {
-    tasks.value = await listTasks({ task_type: 'asr', limit: 50 })
+    const res = await listTasks({ task_type: 'asr', limit: 50 })
+    tasks.value = res.records || res
     // 如果 URL 带了 task_id 参数，自动选中
     const urlTaskId = route.query.task_id
     if (urlTaskId && tasks.value.some(t => t.id === urlTaskId)) {
@@ -463,7 +499,7 @@ onMounted(async () => {
     }
   } catch { /* ignore */ }
   try {
-    meetings.value = await listMeetings()
+    meetings.value = (await listMeetings()).records || []
     const map = {}
     for (const m of meetings.value) map[m.id] = m.title
     meetingMap.value = map
@@ -507,6 +543,8 @@ async function startGenerate(regenOpts) {
   if (customPrompt.value.trim()) params.set('custom_prompt', customPrompt.value.trim())
   params.set('temperature', String(temperature.value))
   params.set('max_tokens', String(maxTokens.value))
+  if (ragEnabled.value) params.set('rag_enabled', '1')
+  if (verifyEnabled.value) params.set('verify_enabled', '1')
 
   // 偏好与重新生成参数
   const prefIds = regenOpts?.prefIds?.length ? regenOpts.prefIds : selectedPrefIds.value
@@ -558,6 +596,16 @@ async function startGenerate(regenOpts) {
           const data = JSON.parse(dataStr)
           if (data.type === 'chunk') {
             pendingBuffer.value += data.text
+          } else if (data.type === 'phase') {
+            phaseMessage.value = data.message || ''
+            if (typingTimer) { clearInterval(typingTimer); typingTimer = null }
+          } else if (data.type === 'verify') {
+            phaseMessage.value = '✅ 质量验证完成'
+            verifyResult.value = {
+              score: data.score,
+              issues: data.issues || [],
+              suggestions: data.suggestions || [],
+            }
           } else if (data.type === 'done') {
             // 完成：先清空 pendingBuffer，再标记 done
             if (typingTimer) { clearInterval(typingTimer); typingTimer = null }
@@ -628,6 +676,25 @@ function resetForm() {
   regenReason.value = ''
   regenNotes.value = ''
   regenPrefIds.value = []
+  phaseMessage.value = ''
+  verifyResult.value = null
+}
+
+function goModelMgmt() {
+  router.push('/models')
+}
+
+function scoreClass(score) {
+  if (!score && score !== 0) return ''
+  if (score >= 80) return 'score-good'
+  if (score >= 60) return 'score-ok'
+  return 'score-bad'
+}
+
+function severityClass(severity) {
+  if (!severity) return ''
+  const map = { 严重: 'sev-critical', 一般: 'sev-normal', 轻微: 'sev-minor' }
+  return map[severity] || ''
 }
 
 // 重新生成
@@ -748,28 +815,16 @@ async function copyPrompt() {
 .doc-badge { font-size: 0.75rem; background: #fff; padding: 1px 6px; border-radius: 3px; margin-left: 6px; }
 
 .template-tabs { display: flex; gap: 4px; flex-wrap: wrap; }
-.template-tab { padding: 6px 16px; border: 1px solid #e2e8f0; background: #fff; border-radius: 6px; cursor: pointer; font-size: 0.85rem; color: #64748b; }
-.template-tab.active { border-color: #4f46e5; color: #4f46e5; background: #eef2ff; }
-.template-tab:hover { border-color: #4f46e5; }
 .template-hint { margin-top: 6px; font-size: 0.78rem; color: #94a3b8; padding: 4px 8px; background: #f8fafc; border-radius: 4px; display: flex; align-items: center; gap: 8px; }
-.btn-view-prompt { font-size: 0.75rem; padding: 2px 8px; border: 1px solid #e2e8f0; background: #fff; border-radius: 4px; cursor: pointer; color: #4f46e5; white-space: nowrap; }
-.btn-view-prompt:hover { background: #eef2ff; }
 
 .form-actions { display: flex; gap: 12px; margin-top: 8px; }
-.btn-generate { padding: 10px 28px; background: #4f46e5; color: #fff; border: none; border-radius: 8px; font-size: 0.95rem; cursor: pointer; }
-.btn-generate:disabled { opacity: 0.6; cursor: not-allowed; }
-.btn-generate:hover:not(:disabled) { background: #4338ca; }
-.btn-stop { padding: 10px 28px; background: #dc2626; color: #fff; border: none; border-radius: 8px; font-size: 0.95rem; cursor: pointer; }
-.btn-stop:hover { background: #b91c1c; }
 
 /* 结果区 */
 .result-section { background: #fff; border: 1px solid #e2e8f0; border-radius: 10px; overflow: hidden; }
-.result-header { display: flex; align-items: center; justify-content: space-between; padding: 14px 20px; border-bottom: 1px solid #e2e8f0; background: #f8fafc; }
+.result-header { display: flex; align-items: center; justify-content: space-between; padding: 14px 20px; border-bottom: 1px solid #e2e8f0; background: #f8fafc; flex-wrap: wrap; gap: 8px; }
 .result-header h3 { margin: 0; font-size: 0.95rem; color: #1e293b; }
-.result-actions { display: flex; align-items: center; gap: 12px; }
-.btn-copy { padding: 4px 12px; border: 1px solid #e2e8f0; background: #fff; border-radius: 4px; cursor: pointer; font-size: 0.8rem; color: #64748b; }
-.btn-copy:hover { border-color: #4f46e5; color: #4f46e5; }
-.usage-info { font-size: 0.78rem; color: #94a3b8; }
+.result-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.usage-info { font-size: 0.78rem; color: #94a3b8; white-space: nowrap; }
 .result-body { padding: 20px 24px; max-height: 600px; overflow-y: auto; }
 
 /* Markdown 渲染 */
@@ -793,48 +848,12 @@ async function copyPrompt() {
 .cursor-blink { display: inline; animation: blink 1s step-end infinite; color: #4f46e5; font-size: 1.1rem; }
 .generating-status { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; padding: 40px 0; color: #94a3b8; font-size: 0.9rem; }
 .done-banner { text-align: center; padding: 12px; color: #16a34a; font-size: 0.9rem; font-weight: 500; border-top: 1px solid #e2e8f0; margin-top: 12px; }
-.btn-view-list { padding: 6px 16px; background: #4f46e5; color: #fff; border: none; border-radius: 6px; font-size: 0.8rem; cursor: pointer; text-decoration: none; }
-.btn-view-list:hover { background: #4338ca; }
-.btn-generate-sm { padding: 6px 16px; background: #fff; color: #64748b; border: 1px solid #e2e8f0; border-radius: 6px; font-size: 0.8rem; cursor: pointer; }
-.btn-generate-sm:hover { border-color: #4f46e5; color: #4f46e5; }
-.btn-edit { padding: 6px 16px; background: #fff; color: #64748b; border: 1px solid #e2e8f0; border-radius: 6px; font-size: 0.8rem; cursor: pointer; }
-.btn-edit:hover { border-color: #4f46e5; color: #4f46e5; }
-.btn-regen { padding: 6px 16px; background: #d97706; color: #fff; border: none; border-radius: 6px; font-size: 0.8rem; cursor: pointer; }
-.btn-regen:hover { background: #b45309; }
-.btn-save { padding: 6px 16px; background: #16a34a; color: #fff; border: none; border-radius: 6px; font-size: 0.8rem; cursor: pointer; }
-.btn-save:hover { background: #15803d; }
-.btn-save:disabled { opacity: 0.6; cursor: not-allowed; }
-.btn-cancel-edit { padding: 6px 16px; background: #fff; color: #64748b; border: 1px solid #e2e8f0; border-radius: 6px; font-size: 0.8rem; cursor: pointer; }
-.btn-cancel-edit:hover { border-color: #dc2626; color: #dc2626; }
 .edit-area { display: flex; flex-direction: column; gap: 8px; }
-.edit-textarea { width: 100%; min-height: 400px; padding: 12px; border: 1px solid #4f46e5; border-radius: 6px; font-size: 0.85rem; font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace; line-height: 1.6; resize: vertical; outline: none; box-sizing: border-box; }
-.edit-textarea:focus { border-color: #4338ca; }
 .edit-hint { font-size: 0.75rem; color: #94a3b8; }
 .pref-hint { margin-top: 6px; padding: 6px 10px; background: #fef3c7; border-radius: 4px; font-size: 0.78rem; color: #92400e; }
 
-/* 重新生成弹窗 */
-.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.4); display: flex; align-items: center; justify-content: center; z-index: 100; }
-.regen-modal { background: #fff; border-radius: 12px; width: 520px; max-width: 95vw; max-height: 85vh; display: flex; flex-direction: column; box-shadow: 0 20px 60px rgba(0,0,0,0.3); }
-.modal-header { display: flex; justify-content: space-between; align-items: center; padding: 16px 20px; border-bottom: 1px solid #e2e8f0; }
-.modal-header h3 { margin: 0; font-size: 1rem; color: #1e293b; }
-.modal-close { width: 32px; height: 32px; border: none; background: none; font-size: 1.2rem; cursor: pointer; color: #94a3b8; border-radius: 6px; }
-.modal-close:hover { background: #e2e8f0; color: #1e293b; }
-.modal-body { padding: 20px; overflow-y: auto; flex: 1; }
-.modal-footer { display: flex; justify-content: flex-end; gap: 8px; padding: 16px 20px; border-top: 1px solid #e2e8f0; }
-.btn-cancel { padding: 8px 20px; border: 1px solid #e2e8f0; background: #fff; border-radius: 6px; cursor: pointer; font-size: 0.85rem; color: #64748b; }
-.btn-cancel:hover { border-color: #dc2626; color: #dc2626; }
-
-/* 提示词预览弹窗 */
-.prompt-modal { background: #fff; border-radius: 12px; width: 720px; max-width: 95vw; max-height: 85vh; display: flex; flex-direction: column; box-shadow: 0 20px 60px rgba(0,0,0,0.3); }
-.prompt-header { display: flex; justify-content: space-between; align-items: center; padding: 16px 20px; border-bottom: 1px solid #e2e8f0; }
-.prompt-header h3 { margin: 0; font-size: 1rem; color: #1e293b; }
-.prompt-header-actions { display: flex; align-items: center; gap: 8px; }
-.btn-copy-prompt { padding: 4px 12px; border: 1px solid #e2e8f0; background: #fff; border-radius: 4px; cursor: pointer; font-size: 0.8rem; color: #64748b; }
-.btn-copy-prompt:hover { border-color: #4f46e5; color: #4f46e5; }
-.prompt-close { width: 32px; height: 32px; border: none; background: none; font-size: 1.2rem; cursor: pointer; color: #94a3b8; border-radius: 6px; }
-.prompt-close:hover { background: #e2e8f0; color: #1e293b; }
-.prompt-hint { padding: 8px 20px; font-size: 0.8rem; color: #94a3b8; background: #f8fafc; border-bottom: 1px solid #e2e8f0; }
-.prompt-body { flex: 1; overflow-y: auto; padding: 20px; margin: 0; font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace; font-size: 0.82rem; line-height: 1.6; color: #334155; white-space: pre-wrap; word-wrap: break-word; }
+.prompt-hint { font-size: 0.8rem; color: #94a3b8; background: #f8fafc; padding: 8px 12px; border-radius: 6px; margin-bottom: 8px; }
+.prompt-body { max-height: 60vh; overflow-y: auto; padding: 16px; margin: 0; font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace; font-size: 0.82rem; line-height: 1.6; color: #334155; white-space: pre-wrap; word-wrap: break-word; background: #f8fafc; border-radius: 6px; }
 @keyframes blink { 50% { opacity: 0; } }
 
 /* 多选偏好 */
@@ -845,4 +864,37 @@ async function copyPrompt() {
 .default-badge-sm { font-size: 0.7rem; color: #d97706; }
 .pref-checkbox-notes { font-size: 0.78rem; color: #94a3b8; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .pref-empty { font-size: 0.8rem; color: #94a3b8; padding: 8px 0; text-align: center; }
+
+/* 高级设置折叠面板 */
+.advanced-section { margin-bottom: 16px; border: 1px solid #e2e8f0; border-radius: 8px; }
+.advanced-section :deep(.el-collapse-item__header) { padding: 0 12px; font-size: 0.85rem; font-weight: 500; }
+.advanced-section :deep(.el-collapse-item__content) { padding: 12px; }
+.advanced-row { display: flex; gap: 24px; flex-wrap: wrap; }
+.advanced-item { flex: 1; min-width: 200px; }
+.advanced-item :deep(.el-switch) { margin-bottom: 4px; }
+.advanced-desc { font-size: 0.75rem; color: #94a3b8; margin-top: 2px; }
+.model-chain-hint { margin-top: 12px; padding-top: 10px; border-top: 1px solid #f1f5f9; font-size: 0.8rem; color: #64748b; display: flex; align-items: center; gap: 8px; }
+
+/* 阶段指示器 */
+.phase-indicator { display: flex; align-items: center; gap: 8px; padding: 10px 20px; background: #eef2ff; color: #4f46e5; font-size: 0.85rem; font-weight: 500; border-bottom: 1px solid #e2e8f0; }
+.spinner-small { width: 14px; height: 14px; border: 2px solid #c7d2fe; border-top-color: #4f46e5; border-radius: 50%; animation: spin 0.7s linear infinite; flex-shrink: 0; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* 质量验证结果卡片 */
+.verify-card { margin: 0 20px; padding: 14px 16px; border: 1px solid #dbeafe; border-radius: 8px; background: #f0f7ff; }
+.verify-header { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.verify-icon { font-size: 1.1rem; }
+.verify-title { font-weight: 600; font-size: 0.85rem; color: #1e40af; }
+.verify-score { margin-left: auto; padding: 2px 10px; border-radius: 12px; font-weight: 700; font-size: 0.85rem; }
+.score-good { background: #dcfce7; color: #16a34a; }
+.score-ok { background: #fef3c7; color: #d97706; }
+.score-bad { background: #fee2e2; color: #dc2626; }
+.verify-subtitle { font-size: 0.82rem; font-weight: 500; color: #475569; margin: 8px 0 4px; }
+.verify-issues { margin-bottom: 4px; }
+.verify-issue-item { font-size: 0.82rem; color: #334155; padding: 3px 0; display: flex; align-items: flex-start; gap: 6px; }
+.issue-severity { display: inline-block; padding: 0 5px; border-radius: 3px; font-size: 0.7rem; font-weight: 500; white-space: nowrap; flex-shrink: 0; }
+.sev-critical { background: #fee2e2; color: #dc2626; }
+.sev-normal { background: #fef3c7; color: #d97706; }
+.sev-minor { background: #e0f2fe; color: #0284c7; }
+.verify-suggestion-item { font-size: 0.82rem; color: #475569; padding: 2px 0; }
 </style>

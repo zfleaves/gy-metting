@@ -269,6 +269,28 @@ class Minutes(Base):
 # 纪要偏好模型
 # ============================================================
 
+# ============================================================
+# RAG 模型配置（Embedding / Reranker）
+# ============================================================
+
+class RagModel(Base):
+    """RAG 模型配置 — 用户级，支持 Embedding 和 Reranker 两类"""
+
+    __tablename__ = "rag_models"
+
+    id = Column(String(32), primary_key=True, default=_new_id)
+    user_id = Column(String(32), ForeignKey("users.id"), nullable=False, index=True)
+    name = Column(String(100), nullable=False)
+    model_type = Column(String(20), nullable=False, index=True)  # "embedding" / "reranker"
+    provider = Column(String(50), nullable=False, default="dashscope")
+    base_url = Column(String(500), nullable=False, default="https://dashscope.aliyuncs.com/api/v1")
+    api_key = Column(String(500), nullable=False)
+    model = Column(String(100), nullable=False)
+    is_active = Column(String(5), default="0")
+    created_at = Column(DateTime, nullable=False, default=_utcnow)
+    updated_at = Column(DateTime, nullable=False, default=_utcnow, onupdate=_utcnow)
+
+
 class MinutesPreference(Base):
     """纪要偏好 — 保存不同版本的生成结果，用户可采纳为偏好模板"""
 
