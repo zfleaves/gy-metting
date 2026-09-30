@@ -27,3 +27,18 @@ Thumbs.db
 .playwright-mcp/
 *.png
 minutes-page.png
+
+# Node.js
+node_modules/
+package-lock.json
+
+# 日志
+*.log
+server.log
+
+# 测试输出
+test-results/
+
+# 临时/杂散文件
+frontend/⚠️
+frontend/本次会议未涉及相关内容
